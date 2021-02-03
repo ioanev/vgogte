@@ -1,8 +1,7 @@
 /*
- Author: Vaibhav Gogte <vgogte@umich.edu>
-         Aasheesh Kolli <akolli@umich.edu>
+Author: Vaibhav Gogte <vgogte@umich.edu>
+Aasheesh Kolli <akolli@umich.edu>
 */
-
 
 #include <iostream>
 #include <cstdlib>
@@ -14,57 +13,86 @@
 #include "cq.h"
 
 #define NUM_SUB_ITEMS 64 
-#define NUM_OPS 10000000
-#define NUM_THREADS 12 
+#define NUM_OPS 10000
+#define NUM_THREADS 4 
+
+int workrank;
+int numtasks;
+
+bool *enq_lock_flag;
+bool *deq_lock_flag;
+argo::globallock::global_tas_lock *enq_lock;
+argo::globallock::global_tas_lock *deq_lock;
+
+// Macro for only node0 to do stuff
+#define WEXEC(inst) ({ if (workrank == 0) inst; })
 
 concurrent_queue* CQ;
 
 void initialize() {
-  CQ = (concurrent_queue*)malloc(sizeof(concurrent_queue));
-  CQ->init(NUM_SUB_ITEMS);
-  
-  fprintf(stderr, "Created cq at %p\n", (void *)CQ);
+	CQ = argo::conew_<concurrent_queue>();
+	WEXEC(CQ->init(NUM_SUB_ITEMS));
+	argo::barrier();
+
+	WEXEC(fprintf(stderr, "Created cq at %p\n", (void *)CQ));
 }
 
 
 void* run_stub(void* ptr) {
-  int ret;
-  for (int i = 0; i < NUM_OPS/NUM_THREADS; ++i) {
-    CQ->push(i);
-  }
-  return NULL;
+	int ret;
+	for (int i = 0; i < NUM_OPS/(NUM_THREADS*numtasks); ++i) {
+		CQ->push(i);
+	}
+	return NULL;
 }
 
 int main(int argc, char** argv) {
-  std::cout << "In main\n" << std::endl;
-  struct timeval tv_start;
-  struct timeval tv_end;
-  std::ofstream fexec;
-  fexec.open("exec.csv",std::ios_base::app);
+	argo::init(1*1024*1024*1024UL);
 
-  initialize();
+	workrank = argo::node_id();
+	numtasks = argo::number_of_nodes();
 
-  pthread_t threads[NUM_THREADS];
-  
-  gettimeofday(&tv_start, NULL);
-  for (int i = 0; i < NUM_THREADS; ++i) {
-    pthread_create(&threads[i], NULL, &run_stub, NULL);
-  }
-  
-  for (int i = 0; i < NUM_THREADS; ++i) {
-    pthread_join(threads[i], NULL);
-  }
-  gettimeofday(&tv_end, NULL);
+	enq_lock_flag = argo::conew_<bool>(false);
+	deq_lock_flag = argo::conew_<bool>(false);
+	enq_lock = new argo::globallock::global_tas_lock(enq_lock_flag);
+	deq_lock = new argo::globallock::global_tas_lock(deq_lock_flag);
 
-  fprintf(stderr, "time elapsed %ld us\n",
-          tv_end.tv_usec - tv_start.tv_usec +
-          (tv_end.tv_sec - tv_start.tv_sec) * 1000000);
+	WEXEC(std::cout << "In main\n" << std::endl);
+	struct timeval tv_start;
+	struct timeval tv_end;
+	std::ofstream fexec;
+	WEXEC(fexec.open("exec.csv",std::ios_base::app));
 
+	initialize();
 
-  fexec << "CQ" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl;
-  fexec.close();
+	pthread_t threads[NUM_THREADS];
 
-  free(CQ);
-  
-  return 0;
+	gettimeofday(&tv_start, NULL);
+	for (int i = 0; i < NUM_THREADS; ++i) {
+		pthread_create(&threads[i], NULL, &run_stub, NULL);
+	}
+
+	for (int i = 0; i < NUM_THREADS; ++i) {
+		pthread_join(threads[i], NULL);
+	}
+	argo::barrier();
+	gettimeofday(&tv_end, NULL);
+
+	WEXEC(fprintf(stderr, "time elapsed %ld us\n",
+				tv_end.tv_usec - tv_start.tv_usec +
+				(tv_end.tv_sec - tv_start.tv_sec) * 1000000));
+
+	WEXEC(fexec << "CQ" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl);
+	WEXEC(fexec.close());
+
+	argo::codelete_(CQ);
+
+	delete enq_lock;
+	delete deq_lock;
+	argo::codelete_(enq_lock_flag);
+	argo::codelete_(deq_lock_flag);
+
+	argo::finalize();
+
+	return 0;
 }
