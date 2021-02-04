@@ -1,10 +1,11 @@
 /*
- Author: Vaibhav Gogte <vgogte@umich.edu>
-         Aasheesh Kolli <akolli@umich.edu>
+Author: Vaibhav Gogte <vgogte@umich.edu>
+Aasheesh Kolli <akolli@umich.edu>
 
-  This microbenchmark swaps two items in an array.
+This microbenchmark swaps two items in an array.
 */
 
+#include "argo.hpp"
 
 #include <iostream>
 #include <pthread.h>
@@ -15,147 +16,161 @@
 #include <string>
 #include <fstream>
 
-#define NUM_SUB_ITEMS 2 
-#define NUM_OPS 10000000
-#define NUM_ROWS 100000
-#define NUM_THREADS 1 
+#define NUM_SUB_ITEMS 64
+#define NUM_OPS 1000
+#define NUM_ROWS 1000000
+#define NUM_THREADS 4
 
+int workrank;
+int numtasks;
+
+// Macro for only node0 to do stuff
+#define WEXEC(inst) ({ if (workrank == 0) inst; })
 
 struct Element {
-  int32_t value_[NUM_SUB_ITEMS];
-  Element& operator=(Element& other) {
-    for (int i= 0; i< NUM_SUB_ITEMS; i++) {
-      *(value_ + i) = *(other.value_ + i);
-    }
-    return *this;
-  }
+	int32_t value_[NUM_SUB_ITEMS];
+	Element& operator=(Element& other) {
+		for (int i= 0; i< NUM_SUB_ITEMS; i++) {
+			*(value_ + i) = *(other.value_ + i);
+		}
+		return *this;
+	}
 };
 
 
 struct Datum {
-  // pointer to the hashmap
-  Element* elements_;
-  // A lock which protects this Datum
-  pthread_mutex_t* lock_;
-
+	// pointer to the hashmap
+	Element* elements_;
+	// A lock which protects this Datum
+	argo::globallock::global_tas_lock* lock_;
+	// A flag attached to this lock
+	bool* lock_flag_;
 };
 
 struct sps {
-  Datum* array;
-  int num_rows_;
-  int num_sub_items_;
+	Datum* array;
+	int num_rows_;
+	int num_sub_items_;
 };
 
 
 sps* S;
 
 void datum_init(sps* s) {
-  for(int i = 0; i < NUM_ROWS; i++) {
-  s->array[i].elements_ = (Element*)malloc(sizeof(Element));
-  s->array[i].lock_ = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
-      pthread_mutex_init(s->array[i].lock_, NULL);
-  
-  for(int j = 0; j < NUM_SUB_ITEMS; j++)
-    s->array[i].elements_->value_[j] = i+j;
-  }
+	for(int i = 0; i < NUM_ROWS; i++) {
+		s->array[i].elements_ = argo::new_<Element>();
+		s->array[i].lock_flag_ = argo::new_<bool>(false);
+		s->array[i].lock_ = argo::new_<argo::globallock::global_tas_lock>(s->array[i].lock_flag_);
+
+		for(int j = 0; j < NUM_SUB_ITEMS; j++)
+			s->array[i].elements_->value_[j] = i+j;
+	}
 }
 
 
 void datum_free(sps* s) {
-  for(int i = 0; i < NUM_ROWS; i++) {
-    free(s->array[i].elements_);
-    free(s->array[i].lock_);
-
-  }
+	for(int i = 0; i < NUM_ROWS; i++) {
+		argo::delete_(s->array[i].elements_);
+		argo::delete_(s->array[i].lock_flag_);
+		argo::delete_(s->array[i].lock_);
+	}
 }
 
 void initialize() {
-  S = (sps *)malloc(sizeof(sps));
-  S->num_rows_ = NUM_ROWS;
-  S->num_sub_items_ = NUM_SUB_ITEMS;
-  S->array = (Datum *)malloc(sizeof(Datum)*NUM_ROWS);
-  datum_init(S);
-  
-  
-  fprintf(stderr, "Created array at %p\n", (void *)S);
+	S = argo::conew_<sps>();
+	S->num_rows_ = NUM_ROWS;
+	S->num_sub_items_ = NUM_SUB_ITEMS;
+	S->array = argo::conew_array<Datum>(NUM_ROWS);
+	WEXEC(datum_init(S));
+	argo::barrier();
+
+
+	WEXEC(fprintf(stderr, "Created array at %p\n", (void *)S->array));
 
 }
 
 bool swap(unsigned int index_a, unsigned int index_b) {
-  //check if index is out of array
-  assert (index_a < NUM_ROWS && index_b < NUM_ROWS); 
+	//check if index is out of array
+	assert (index_a < NUM_ROWS && index_b < NUM_ROWS); 
 
-  //exit if swapping the same index
-  if (index_a == index_b)
-    return true;
+	//exit if swapping the same index
+	if (index_a == index_b)
+		return true;
 
-  //enforce index_a < index_b
-  if (index_a > index_b) {
-    int index_tmp = index_a;
-    index_a = index_b;
-    index_b = index_tmp;
-  }
+	//enforce index_a < index_b
+	if (index_a > index_b) {
+		int index_tmp = index_a;
+		index_a = index_b;
+		index_b = index_tmp;
+	}
 
-  pthread_mutex_lock(S->array[index_a].lock_);
-  pthread_mutex_lock(S->array[index_b].lock_);
+	S->array[index_a].lock_->lock();
+	S->array[index_b].lock_->lock();
 
-  //swap array values
-  Element temp;
-  temp = *(S->array[index_a].elements_);
-  *(S->array[index_a].elements_) = *(S->array[index_b].elements_);
-  *(S->array[index_b].elements_) = temp;
+	//swap array values
+	Element temp;
+	temp = *(S->array[index_a].elements_);
+	*(S->array[index_a].elements_) = *(S->array[index_b].elements_);
+	*(S->array[index_b].elements_) = temp;
 
-  pthread_mutex_unlock(S->array[index_a].lock_);
-  pthread_mutex_unlock(S->array[index_b].lock_);
+	S->array[index_a].lock_->unlock();
+	S->array[index_b].lock_->unlock();
 
-  return true;
+	return true;
 }
 
 void* run_stub(void* ptr) {
-  for (int i = 0; i < NUM_OPS/NUM_THREADS; ++i) {
-    int index_a = rand()%NUM_ROWS;
-    int index_b = rand()%NUM_ROWS;
-    swap(index_a, index_b);
-  }
-  return NULL;
+	for (int i = 0; i < NUM_OPS/(NUM_THREADS*numtasks); ++i) {
+		int index_a = rand()%NUM_ROWS;
+		int index_b = rand()%NUM_ROWS;
+		swap(index_a, index_b);
+	}
+	return NULL;
 }
 
 int main(int argc, char** argv) {
-  std::cout << "In main\n" << std::endl;
-  struct timeval tv_start;
-  struct timeval tv_end;
+	argo::init(500*1024*1024UL);
 
-  std::ofstream fexec;
-  fexec.open("exec.csv",std::ios_base::app);
+	workrank = argo::node_id();
+	numtasks = argo::number_of_nodes();
 
+	WEXEC(std::cout << "In main\n" << std::endl);
+	struct timeval tv_start;
+	struct timeval tv_end;
 
-  // This contains the Atlas restart code to find any reusable data
-  initialize();
-
-  pthread_t threads[NUM_THREADS];
-
-  gettimeofday(&tv_start, NULL);
-  for (int i = 0; i < NUM_THREADS; ++i) {
-      pthread_create(&threads[i], NULL, &run_stub, NULL);
-  }   
-
-  for (int i = 0; i < NUM_THREADS; ++i) {
-      pthread_join(threads[i], NULL);
-  }
+	std::ofstream fexec;
+	WEXEC(fexec.open("exec.csv",std::ios_base::app));
 
 
-  gettimeofday(&tv_end, NULL);
-  fprintf(stderr, "time elapsed %ld us\n",
-          tv_end.tv_usec - tv_start.tv_usec +
-              (tv_end.tv_sec - tv_start.tv_sec) * 1000000);
+	// This contains the Atlas restart code to find any reusable data
+	initialize();
 
-  fexec << "SPS" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl;
+	pthread_t threads[NUM_THREADS];
 
+	gettimeofday(&tv_start, NULL);
+	for (int i = 0; i < NUM_THREADS; ++i) {
+		pthread_create(&threads[i], NULL, &run_stub, NULL);
+	}   
 
-  fexec.close();
+	for (int i = 0; i < NUM_THREADS; ++i) {
+		pthread_join(threads[i], NULL);
+	}
+	argo::barrier();
 
-  datum_free(S);
-  free(S->array);
-  free(S);
-  return 0;
+	gettimeofday(&tv_end, NULL);
+	WEXEC(fprintf(stderr, "time elapsed %ld us\n",
+				tv_end.tv_usec - tv_start.tv_usec +
+				(tv_end.tv_sec - tv_start.tv_sec) * 1000000));
+
+	WEXEC(fexec << "SPS" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl);
+
+	WEXEC(fexec.close());
+
+	WEXEC(datum_free(S));
+	argo::codelete_array(S->array);
+	argo::codelete_(S);
+
+	argo::finalize();
+
+	return 0;
 }
