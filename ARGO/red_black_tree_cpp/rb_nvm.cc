@@ -1,6 +1,6 @@
 /*
-  Author: Vaibhav Gogte <vgogte@umich.edu>
-          Aasheesh Kolli <akolli@umich.edu>
+Author: Vaibhav Gogte <vgogte@umich.edu>
+Aasheesh Kolli <akolli@umich.edu>
 */ 
 
 #include "rb.h"
@@ -17,91 +17,106 @@
 
 #define TREE_LENGTH 100
 #define NUM_UPDATES_PER_CS 64 
-#define NUM_OPS 1000000
-#define NUM_THREADS 12 
+#define NUM_OPS 10000
+#define NUM_THREADS 4
 
+int workrank;
+int numtasks;
+
+// Macro for only node0 to do stuff
+#define WEXEC(inst) ({ if (workrank == 0) inst; })
 
 int* array;
 
 Red_Black_Tree* RB;
 
 void initialize() {
-  RB = (Red_Black_Tree *)malloc(sizeof(Red_Black_Tree));
+	RB = argo::conew_<Red_Black_Tree>();
 }
 
 
 
 void* run_stub(void* ptr) {
-  for (int i = 0; i < NUM_OPS/NUM_THREADS; ++i) {
-    RB->rb_delete_or_insert(NUM_UPDATES_PER_CS);
-  }
-    
-  return NULL;
+	for (int i = 0; i < NUM_OPS/(NUM_THREADS*numtasks); ++i) {
+		RB->rb_delete_or_insert(NUM_UPDATES_PER_CS);
+	}
+
+	return NULL;
 }
 
 // check if the two trees contain the same values
 void verify(Node* root) {
-  unsigned count = 0;
-  Node* curr = root;
-  while (count < MAX_LEN) {
-    int val_1, val_2;
-    val_1 = curr->val;
-    val_2 = (curr + MAX_LEN)->val;
-    assert(val_2 == val_1 && "Two trees do not contain the same values");
-    curr++;
-    count++;
-  }
+	unsigned count = 0;
+	Node* curr = root;
+	while (count < MAX_LEN) {
+		int val_1, val_2;
+		val_1 = curr->val;
+		val_2 = (curr + MAX_LEN)->val;
+		assert(val_2 == val_1 && "Two trees do not contain the same values");
+		curr++;
+		count++;
+	}
 }
 
 int main(int argc, char** argv) {
-  std::cout << "In main\n" << std::endl;
-  struct timeval tv_start;
-  struct timeval tv_end;
-  std::ofstream fexec;
-  fexec.open("exec.csv",std::ios_base::app);
-  
-  // This contains the Atlas restart code to find any reusable data
-  initialize();
+	argo::init(500*1024*1024UL);
 
-  array = (int*)malloc(TREE_LENGTH * sizeof(int));
+	workrank = argo::node_id();
+	numtasks = argo::number_of_nodes();
 
-  for (int i = 0; i < TREE_LENGTH; ++i) {
-      array[i] = i;
-  }
+	WEXEC(std::cout << "In main\n" << std::endl);
+	struct timeval tv_start;
+	struct timeval tv_end;
+	std::ofstream fexec;
+	WEXEC(fexec.open("exec.csv",std::ios_base::app));
 
-  Node* root = (Node*)malloc(2 * sizeof(Node) * MAX_LEN);
-  RB->initialize(root, array, TREE_LENGTH);
-  std::cout << "Done with RBtree creation" << std::endl;
+	// This contains the Atlas restart code to find any reusable data
+	initialize();
 
-  pthread_t T[NUM_THREADS];
+	array = argo::conew_array<int>(TREE_LENGTH);
 
-  gettimeofday(&tv_start, NULL);
+	WEXEC(for (int i = 0; i < TREE_LENGTH; ++i) {
+			array[i] = i;
+			});
 
-  for (int i = 0; i < NUM_THREADS; ++i) {
-      pthread_create(&T[i], NULL, &run_stub, NULL);
-  }
+	Node* root = argo::conew_array<Node>(2 * MAX_LEN);
+	WEXEC(RB->initialize(root, array, TREE_LENGTH));
+	argo::barrier();
+	WEXEC(std::cout << "Done with RBtree creation" << std::endl);
 
-  for (int i = 0; i < NUM_THREADS; ++i) {
-      pthread_join(T[i], NULL);
-  }
+	pthread_t T[NUM_THREADS];
 
-  gettimeofday(&tv_end, NULL);
+	gettimeofday(&tv_start, NULL);
 
-  fprintf(stderr, "time elapsed %ld us\n",
-          tv_end.tv_usec - tv_start.tv_usec +
-              (tv_end.tv_sec - tv_start.tv_sec) * 1000000);
+	for (int i = 0; i < NUM_THREADS; ++i) {
+		pthread_create(&T[i], NULL, &run_stub, NULL);
+	}
 
-  fexec << "RB" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl;
+	for (int i = 0; i < NUM_THREADS; ++i) {
+		pthread_join(T[i], NULL);
+	}
+	argo::barrier();
+
+	gettimeofday(&tv_end, NULL);
+
+	WEXEC(fprintf(stderr, "time elapsed %ld us\n",
+				tv_end.tv_usec - tv_start.tv_usec +
+				(tv_end.tv_sec - tv_start.tv_sec) * 1000000));
+
+	WEXEC(fexec << "RB" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl);
 
 
-  fexec.close();
+	WEXEC(fexec.close());
 
-  std::cout << "Done with RBtree" << std::endl;
+	WEXEC(std::cout << "Done with RBtree" << std::endl);
 
-  free(array);
-  free(root);
-  free(RB);
-  std::cout << "Finished!" << std::endl;
+	argo::codelete_array(array);
+	argo::codelete_array(root);
+	argo::codelete_(RB);
 
-  return 0;
+	WEXEC(std::cout << "Finished!" << std::endl);
+
+	argo::finalize();
+
+	return 0;
 }
