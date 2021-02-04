@@ -41,6 +41,10 @@ struct item {
 class concurrent_queue {
 	item *head;
 	item *tail;
+	bool *enq_lock_flag;
+	bool *deq_lock_flag;
+	argo::globallock::global_tas_lock *enq_lock;
+	argo::globallock::global_tas_lock *deq_lock;
 	int num_sub_items;
 
 	public:

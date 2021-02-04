@@ -19,11 +19,6 @@ Aasheesh Kolli <akolli@umich.edu>
 int workrank;
 int numtasks;
 
-bool *enq_lock_flag;
-bool *deq_lock_flag;
-argo::globallock::global_tas_lock *enq_lock;
-argo::globallock::global_tas_lock *deq_lock;
-
 // Macro for only node0 to do stuff
 #define WEXEC(inst) ({ if (workrank == 0) inst; })
 
@@ -51,11 +46,6 @@ int main(int argc, char** argv) {
 
 	workrank = argo::node_id();
 	numtasks = argo::number_of_nodes();
-
-	enq_lock_flag = argo::conew_<bool>(false);
-	deq_lock_flag = argo::conew_<bool>(false);
-	enq_lock = new argo::globallock::global_tas_lock(enq_lock_flag);
-	deq_lock = new argo::globallock::global_tas_lock(deq_lock_flag);
 
 	WEXEC(std::cout << "In main\n" << std::endl);
 	struct timeval tv_start;
@@ -86,11 +76,6 @@ int main(int argc, char** argv) {
 	WEXEC(fexec.close());
 
 	argo::codelete_(CQ);
-
-	delete enq_lock;
-	delete deq_lock;
-	argo::codelete_(enq_lock_flag);
-	argo::codelete_(deq_lock_flag);
 
 	argo::finalize();
 

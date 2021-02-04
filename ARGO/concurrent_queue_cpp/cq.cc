@@ -14,9 +14,6 @@ Aasheesh Kolli <akolli@umich.edu>
  ******************************************/
 
 
-extern argo::globallock::global_tas_lock *enq_lock;
-extern argo::globallock::global_tas_lock *deq_lock;
-
 void concurrent_queue::push(int val) {
 	item *new_item = argo::new_<item>();
 
@@ -64,9 +61,19 @@ void concurrent_queue::init(int n) {
 concurrent_queue::concurrent_queue() {
 	head = NULL; 
 	tail = NULL;
+	enq_lock_flag = argo::new_<bool>(false);
+	deq_lock_flag = argo::new_<bool>(false);
+	enq_lock = argo::new_<argo::globallock::global_tas_lock>(enq_lock_flag);
+	deq_lock = argo::new_<argo::globallock::global_tas_lock>(deq_lock_flag);
+	num_sub_items = 0;
 }
 
 concurrent_queue::~concurrent_queue() {
 	int temp;
 	while(pop(temp));
+	
+	argo::delete_(enq_lock_flag);
+	argo::delete_(deq_lock_flag);
+	argo::delete_(enq_lock);
+	argo::delete_(deq_lock);
 }
