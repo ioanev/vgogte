@@ -2,6 +2,8 @@
 Author: Vaibhav Gogte <vgogte@umich.edu>
 Aasheesh Kolli <akolli@umich.edu>
 
+ArgoDSM/PThreads version:
+Ioannis Anevlavis <ioannis.anevlavis@etascale.com>
 
 This file defines the various functions of the tpcc database
 */

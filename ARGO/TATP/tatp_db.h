@@ -2,6 +2,8 @@
 Author: Vaibhav Gogte <vgogte@umich.edu>
 Aasheesh Kolli <akolli@umich.edu>
 
+ArgoDSM/PThreads version:
+Ioannis Anevlavis <ioannis.anevlavis@etascale.com>
 
 This file declares the TATP data base and the different transactions supported by
 the database.
