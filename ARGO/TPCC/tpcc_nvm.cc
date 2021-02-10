@@ -78,7 +78,7 @@ int main(int argc, char* argv[]) {
 	WEXEC(tpcc_db->populate_tables());
 
 	WEXEC(std::cout<<"done with populating tables"<<std::endl);
-	argo::barrier();
+	argo_barrier();
 
 	pthread_t threads[NUM_THREADS];
 	int global_tid[NUM_THREADS];
@@ -93,7 +93,7 @@ int main(int argc, char* argv[]) {
 	for(int i=0; i<NUM_THREADS; i++) {
 		pthread_join(threads[i], NULL);
 	}
-	argo::barrier();
+	argo_barrier();
 	gettimeofday(&tv_end, NULL);
 	WEXEC(fprintf(stderr, "time elapsed %ld us\n",
 				tv_end.tv_usec - tv_start.tv_usec +
@@ -101,10 +101,12 @@ int main(int argc, char* argv[]) {
 
 	WEXEC(fexec << "TPCC" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl);
 
-	WEXEC(fexec.close());
+	WEXEC(fexec.close());	
 	argo::codelete_(tpcc_db);
 
 	WEXEC(std::cout<<"done with threads"<<std::endl);
+
+	print_argo_stats();
 
 	argo::finalize();
 

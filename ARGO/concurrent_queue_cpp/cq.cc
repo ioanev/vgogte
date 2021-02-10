@@ -15,32 +15,33 @@ Ioannis Anevlavis <ioannis.anevlavis@etascale.com>
  *     push > tail...head > pop      *
  ******************************************/
 
+lock_barr_t argo_stats;
 
 void concurrent_queue::push(int val) {
 	item *new_item = argo::new_<item>();
 
-	enq_lock->lock();
+	argo_lock(enq_lock);
 	for (int i = 0; i < num_sub_items; i++) {
 		(new_item->si + i)->val = val;
 	}
 	new_item->next = NULL;
 	tail->next = new_item;
 	tail = new_item;
-	enq_lock->unlock();
+	argo_unlock(enq_lock);
 }
 
 bool concurrent_queue::pop(int &out) {
-	deq_lock->lock();
+	argo_lock(deq_lock);
 	item *node = head;
 	item *new_head = node->next;
 	if (new_head == NULL) {
-		deq_lock->unlock();
+		argo_unlock(deq_lock);
 		return false;
 	}
 	out = (new_head->si)->val;
 
 	head = new_head;
-	deq_lock->unlock();
+	argo_unlock(deq_lock);
 
 	argo::delete_(node);
 	return true;

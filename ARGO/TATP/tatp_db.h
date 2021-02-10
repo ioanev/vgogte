@@ -10,6 +10,7 @@ the database.
 */
 
 #include "argo.hpp"
+#include "../common/wtime.hpp"
 
 #include <cstdint>
 //#include <atomic>

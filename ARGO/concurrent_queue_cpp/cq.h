@@ -7,6 +7,7 @@ Ioannis Anevlavis <ioannis.anevlavis@etascale.com>
 */
 
 #include "argo.hpp"
+#include "../common/wtime.hpp"
 
 #include <vector>
 #include <pthread.h>

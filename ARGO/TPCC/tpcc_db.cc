@@ -23,6 +23,8 @@ This file defines the various functions of the tpcc database
 #define NUM_ITEMS 100
 #define NUM_RNDM_SEEDS 1280
 
+lock_barr_t argo_stats;
+
 TPCC_DB::TPCC_DB() {}
 
 void TPCC_DB::initialize(int _num_warehouses, int numThreads, int numLocks) {
@@ -154,7 +156,7 @@ void TPCC_DB::acquire_locks(int threadId, queue_t &requestedLocks) {
 		i = requestedLocks.front();
 		perTxLocks[threadId].push(i);
 		requestedLocks.pop();
-		locks[i]->lock();
+		argo_lock(locks[i]);
 	}
 }
 
@@ -165,7 +167,7 @@ void TPCC_DB::release_locks(int threadId) {
 	while(!perTxLocks[threadId].empty()) {
 		i = perTxLocks[threadId].front();
 		perTxLocks[threadId].pop();
-		locks[i]->unlock();
+		argo_unlock(locks[i]);
 	}
 }
 

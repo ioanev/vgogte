@@ -9,6 +9,7 @@ This file uses the PersistentCache to enable multi-threaded updates to it.
 */
 
 #include "argo.hpp"
+#include "../common/wtime.hpp"
 
 #include <iostream>
 #include <cstdint>
@@ -25,6 +26,8 @@ This file uses the PersistentCache to enable multi-threaded updates to it.
 
 int workrank;
 int numtasks;
+
+lock_barr_t argo_stats;
 
 // Macro for only node0 to do stuff
 #define WEXEC(inst) ({ if (workrank == 0) inst; })
@@ -78,12 +81,12 @@ void datum_free(pc* p) {
 
 
 void datum_set(int key, int value) {
-	P->hashmap[key].lock_->lock();
+	argo_lock(P->hashmap[key].lock_);
 
 	for(int j = 0; j < NUM_ELEMS_PER_DATUM; j++)
 		P->hashmap[key].elements_->value_[j] = value+j;
 
-	P->hashmap[key].lock_->unlock();
+	argo_unlock(P->hashmap[key].lock_);
 }
 
 
@@ -93,7 +96,7 @@ void initialize() {
 	P->num_elems_per_row_ = NUM_ELEMS_PER_DATUM;
 	P->hashmap = argo::conew_array<Datum>(NUM_ROWS);
 	WEXEC(datum_init(P));
-	argo::barrier();
+	argo_barrier();
 
 	WEXEC(fprintf(stderr, "Created hashmap at %p\n", (void *)P->hashmap));
 }
@@ -141,7 +144,7 @@ int main (int argc, char* argv[]) {
 	for (int i = 0; i < NUM_THREADS; i++) {
 		pthread_join(threads[i], NULL);
 	}
-	argo::barrier();
+	argo_barrier();
 
 	gettimeofday(&tv_end, NULL);
 
@@ -159,6 +162,8 @@ int main (int argc, char* argv[]) {
 
 
 	WEXEC(std::cout << "Done with persistent cache" << std::endl);
+
+	print_argo_stats();
 
 	argo::finalize();
 

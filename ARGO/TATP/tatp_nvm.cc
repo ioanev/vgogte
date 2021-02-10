@@ -69,7 +69,7 @@ int main(int argc, char* argv[]) {
 
 	WEXEC(my_tatp_db->populate_tables(NUM_SUBSCRIBERS));
 	WEXEC(std::cout<<"done with populating tables"<<std::endl);
-	argo::barrier();
+	argo_barrier();
 
 
 	pthread_t threads[NUM_THREADS];
@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
 	for(int i=0; i<NUM_THREADS; i++) {
 		pthread_join(threads[i], NULL);
 	}
-	argo::barrier();
+	argo_barrier();
 	gettimeofday(&tv_end, NULL);
 	WEXEC(fprintf(stderr, "time elapsed %ld us\n",
 				tv_end.tv_usec - tv_start.tv_usec +
@@ -102,6 +102,8 @@ int main(int argc, char* argv[]) {
 	argo::codelete_(my_tatp_db);
 
 	WEXEC(std::cout<<"done with threads"<<std::endl);
+
+  	print_argo_stats();
 
 	argo::finalize();
 

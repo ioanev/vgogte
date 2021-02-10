@@ -30,7 +30,7 @@ concurrent_queue* CQ;
 void initialize() {
 	CQ = argo::conew_<concurrent_queue>();
 	WEXEC(CQ->init(NUM_SUB_ITEMS));
-	argo::barrier();
+	argo_barrier();
 
 	WEXEC(fprintf(stderr, "Created cq at %p\n", (void *)CQ));
 }
@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
 	for (int i = 0; i < NUM_THREADS; ++i) {
 		pthread_join(threads[i], NULL);
 	}
-	argo::barrier();
+	argo_barrier();
 	gettimeofday(&tv_end, NULL);
 
 	WEXEC(fprintf(stderr, "time elapsed %ld us\n",
@@ -79,6 +79,8 @@ int main(int argc, char** argv) {
 	WEXEC(fexec.close());
 
 	argo::codelete_(CQ);
+
+	print_argo_stats();
 
 	argo::finalize();
 

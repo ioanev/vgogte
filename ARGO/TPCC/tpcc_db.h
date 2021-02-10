@@ -9,6 +9,7 @@ This file declares the tpcc database and the accesor transactions.
 */
 
 #include "argo.hpp"
+#include "../common/wtime.hpp"
 
 #include "table_entries.h"
 #include <atomic>

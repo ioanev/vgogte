@@ -9,6 +9,7 @@ This microbenchmark swaps two items in an array.
 */
 
 #include "argo.hpp"
+#include "../common/wtime.hpp"
 
 #include <iostream>
 #include <pthread.h>
@@ -26,6 +27,8 @@ This microbenchmark swaps two items in an array.
 
 int workrank;
 int numtasks;
+
+lock_barr_t argo_stats;
 
 // Macro for only node0 to do stuff
 #define WEXEC(inst) ({ if (workrank == 0) inst; })
@@ -85,7 +88,7 @@ void initialize() {
 	S->num_sub_items_ = NUM_SUB_ITEMS;
 	S->array = argo::conew_array<Datum>(NUM_ROWS);
 	WEXEC(datum_init(S));
-	argo::barrier();
+	argo_barrier();
 
 
 	WEXEC(fprintf(stderr, "Created array at %p\n", (void *)S->array));
@@ -107,8 +110,8 @@ bool swap(unsigned int index_a, unsigned int index_b) {
 		index_b = index_tmp;
 	}
 
-	S->array[index_a].lock_->lock();
-	S->array[index_b].lock_->lock();
+	argo_lock(S->array[index_a].lock_);
+	argo_lock(S->array[index_b].lock_);
 
 	//swap array values
 	Element temp;
@@ -116,8 +119,8 @@ bool swap(unsigned int index_a, unsigned int index_b) {
 	*(S->array[index_a].elements_) = *(S->array[index_b].elements_);
 	*(S->array[index_b].elements_) = temp;
 
-	S->array[index_a].lock_->unlock();
-	S->array[index_b].lock_->unlock();
+	argo_unlock(S->array[index_a].lock_);
+	argo_unlock(S->array[index_b].lock_);
 
 	return true;
 }
@@ -158,7 +161,7 @@ int main(int argc, char** argv) {
 	for (int i = 0; i < NUM_THREADS; ++i) {
 		pthread_join(threads[i], NULL);
 	}
-	argo::barrier();
+	argo_barrier();
 
 	gettimeofday(&tv_end, NULL);
 	WEXEC(fprintf(stderr, "time elapsed %ld us\n",
@@ -172,6 +175,8 @@ int main(int argc, char** argv) {
 	WEXEC(datum_free(S));
 	argo::codelete_array(S->array);
 	argo::codelete_(S);
+
+	print_argo_stats();
 
 	argo::finalize();
 

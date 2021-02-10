@@ -10,6 +10,8 @@ This file defines RB tree functions.
 
 #include "rb.h"
 
+lock_barr_t argo_stats;
+
 void Red_Black_Tree::left_rotation(Node* x) {
 	Node* y = x->right;
 	recordChange(x);
@@ -514,9 +516,9 @@ void Red_Black_Tree::copy_changes() {
 }
 
 void Red_Black_Tree::lock() {
-	lock_1->lock();
+	argo_lock(lock_1);
 }
 
 void Red_Black_Tree::unlock() {
-	lock_1->unlock();
+	argo_unlock(lock_1);
 }

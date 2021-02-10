@@ -84,7 +84,7 @@ int main(int argc, char** argv) {
 
 	Node* root = argo::conew_array<Node>(2 * MAX_LEN);
 	WEXEC(RB->initialize(root, array, TREE_LENGTH));
-	argo::barrier();
+	argo_barrier();
 	WEXEC(std::cout << "Done with RBtree creation" << std::endl);
 
 	pthread_t T[NUM_THREADS];
@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
 	for (int i = 0; i < NUM_THREADS; ++i) {
 		pthread_join(T[i], NULL);
 	}
-	argo::barrier();
+	argo_barrier();
 
 	gettimeofday(&tv_end, NULL);
 
@@ -118,6 +118,8 @@ int main(int argc, char** argv) {
 	argo::codelete_(RB);
 
 	WEXEC(std::cout << "Finished!" << std::endl);
+
+  	print_argo_stats();
 
 	argo::finalize();
 

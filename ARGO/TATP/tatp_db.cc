@@ -18,6 +18,8 @@ This file defines the various transactions in TATP.
 
 extern int numtasks;
 
+lock_barr_t argo_stats;
+
 int getRand() {
 	return rand();
 }
@@ -229,10 +231,10 @@ void TATP_DB::update_subscriber_data(int threadId) {
 	if(special_facility_table[special_facility_tab_indx].valid) {
 
 		//FIXME: There is a potential data race here, do not use this function yet
-		lock_[rndm_s_id]->lock();
+		argo_lock(lock_[rndm_s_id]);
 		subscriber_table[rndm_s_id].bit_1 = getRand()%2;
 		special_facility_table[special_facility_tab_indx].data_a = getRand()%256;
-		lock_[rndm_s_id]->unlock();
+		argo_unlock(lock_[rndm_s_id]);
 
 	}
 	return;
@@ -242,9 +244,9 @@ void TATP_DB::update_location(int threadId, int num_ops) {
 	long rndm_s_id;
 	rndm_s_id = get_random_s_id(threadId)-1;
 	rndm_s_id /=total_subscribers;
-	lock_[rndm_s_id]->lock();
+	argo_lock(lock_[rndm_s_id]);
 	subscriber_table[rndm_s_id].vlr_location = get_random_vlr(threadId);
-	lock_[rndm_s_id]->unlock();
+	argo_unlock(lock_[rndm_s_id]);
 
 	return;
 }
