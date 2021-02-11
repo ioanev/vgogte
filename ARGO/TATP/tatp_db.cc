@@ -40,13 +40,13 @@ void TATP_DB::initialize(unsigned num_subscribers, int n) {
 	// A max of 3 call forwarding entries per "special facility entry"
 	call_forwarding_table= argo::new_array<call_forwarding_entry>(3*4*num_subscribers);
 
-	lock_flag_ = argo::new_array<bool>(num_threads*numtasks);
-	for(int i=0; i<num_threads*numtasks; i++) {
+	lock_flag_ = argo::new_array<bool>(num_subscribers);
+	for(int i=0; i<num_subscribers; i++) {
 		lock_flag_[i] = false;
 	}
 
-	lock_ = argo::new_array<argo::globallock::global_tas_lock*>(num_threads*numtasks);
-	for(int i=0; i<num_threads*numtasks; i++) {
+	lock_ = argo::new_array<argo::globallock::global_tas_lock*>(num_subscribers);
+	for(int i=0; i<num_subscribers; i++) {
 		lock_[i] = argo::new_<argo::globallock::global_tas_lock>(&lock_flag_[i]);
 	}
 
@@ -79,7 +79,7 @@ TATP_DB::~TATP_DB(){
 	argo::delete_array(special_facility_table);
 	argo::delete_array(call_forwarding_table);
 	argo::delete_array(lock_flag_);
-	for(int i=0; i<num_threads*numtasks; i++) {
+	for(int i=0; i<total_subscribers; i++) {
 		argo::delete_(lock_[i]);
 	}
 	argo::delete_array(lock_);
@@ -243,7 +243,7 @@ void TATP_DB::update_subscriber_data(int threadId) {
 void TATP_DB::update_location(int threadId, int num_ops) {
 	long rndm_s_id;
 	rndm_s_id = get_random_s_id(threadId)-1;
-	rndm_s_id /=total_subscribers;
+	//rndm_s_id /=total_subscribers; // with this rndm_s_id is always 0
 	argo_lock(lock_[rndm_s_id]);
 	subscriber_table[rndm_s_id].vlr_location = get_random_vlr(threadId);
 	argo_unlock(lock_[rndm_s_id]);
