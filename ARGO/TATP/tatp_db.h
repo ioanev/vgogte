@@ -10,6 +10,7 @@ the database.
 */
 
 #include "argo.hpp"
+#include "cohort_lock.hpp"
 
 #include <cstdint>
 //#include <atomic>
@@ -26,8 +27,7 @@ class TATP_DB{
 		access_info_entry* access_info_table; // Pointer to the access info table
 		special_facility_entry* special_facility_table; // Pointer to the special facility table
 		call_forwarding_entry* call_forwarding_table; // Pointer to the call forwarding table
-		bool* lock_flag_; // Flag for each lock
-		argo::globallock::global_tas_lock** lock_; // Lock per subscriber to protect the update
+		argo::globallock::cohort_lock** lock_; // Lock per subscriber to protect the update
 		//std::atomic<long>** txCounts; // Array of tx counts, success and fails
 		unsigned long* subscriber_rndm_seeds;
 		unsigned long* vlr_rndm_seeds;

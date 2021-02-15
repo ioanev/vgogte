@@ -459,8 +459,7 @@ void Red_Black_Tree::initialize(Node* root, int* array, unsigned length) {
 
 	tree_length = length;
 	//init mutex
-	lock_flag = argo::new_<bool>(false);
-	lock_1 = argo::new_<argo::globallock::global_tas_lock>(lock_flag);
+	lock_1 = argo::new_<argo::globallock::cohort_lock>();
 	return;
 }
 
@@ -481,8 +480,7 @@ Red_Black_Tree::Red_Black_Tree(Node* root, int* array, unsigned length) {
 
 	tree_length = length;
 	//init mutex
-	lock_flag = argo::new_<bool>(false);
-	lock_1 = argo::new_<argo::globallock::global_tas_lock>(lock_flag);
+	lock_1 = argo::new_<argo::globallock::cohort_lock>();
 }
 
 Node* Red_Black_Tree::createNode(int _val) {

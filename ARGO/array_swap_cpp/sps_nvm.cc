@@ -9,6 +9,7 @@ This microbenchmark swaps two items in an array.
 */
 
 #include "argo.hpp"
+#include "cohort_lock.hpp"
 
 #include <iostream>
 #include <pthread.h>
@@ -45,9 +46,7 @@ struct Datum {
 	// pointer to the hashmap
 	Element* elements_;
 	// A lock which protects this Datum
-	argo::globallock::global_tas_lock* lock_;
-	// A flag attached to this lock
-	bool* lock_flag_;
+	argo::globallock::cohort_lock* lock_;
 };
 
 struct sps {
@@ -62,8 +61,7 @@ sps* S;
 void datum_init(sps* s) {
 	for(int i = 0; i < NUM_ROWS; i++) {
 		s->array[i].elements_ = argo::new_<Element>();
-		s->array[i].lock_flag_ = argo::new_<bool>(false);
-		s->array[i].lock_ = argo::new_<argo::globallock::global_tas_lock>(s->array[i].lock_flag_);
+		s->array[i].lock_ = argo::new_<argo::globallock::cohort_lock>();
 
 		for(int j = 0; j < NUM_SUB_ITEMS; j++)
 			s->array[i].elements_->value_[j] = i+j;
@@ -74,7 +72,6 @@ void datum_init(sps* s) {
 void datum_free(sps* s) {
 	for(int i = 0; i < NUM_ROWS; i++) {
 		argo::delete_(s->array[i].elements_);
-		argo::delete_(s->array[i].lock_flag_);
 		argo::delete_(s->array[i].lock_);
 	}
 }

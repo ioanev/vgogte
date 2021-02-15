@@ -9,6 +9,7 @@ This file uses the PersistentCache to enable multi-threaded updates to it.
 */
 
 #include "argo.hpp"
+#include "cohort_lock.hpp"
 
 #include <iostream>
 #include <cstdint>
@@ -40,9 +41,7 @@ struct Datum {
 	// pointer to the hashmap
 	Element* elements_;
 	// A lock which protects this Datum
-	argo::globallock::global_tas_lock* lock_;
-	// A flag attached to this lock
-	bool* lock_flag_;
+	argo::globallock::cohort_lock* lock_;
 };
 
 
@@ -59,8 +58,7 @@ pc* P;
 void datum_init(pc* p) {
 	for(int i = 0; i < NUM_ROWS; i++) {
 		p->hashmap[i].elements_ = argo::new_<Element>();
-		p->hashmap[i].lock_flag_ = argo::new_<bool>(false);
-		p->hashmap[i].lock_ = argo::new_<argo::globallock::global_tas_lock>(p->hashmap[i].lock_flag_);
+		p->hashmap[i].lock_ = argo::new_<argo::globallock::cohort_lock>();
 
 		for(int j = 0; j < NUM_ELEMS_PER_DATUM; j++)
 			p->hashmap[i].elements_->value_[j] = 0;
@@ -70,7 +68,6 @@ void datum_init(pc* p) {
 void datum_free(pc* p) {
 	for(int i = 0; i < NUM_ROWS; i++) {
 		argo::delete_(p->hashmap[i].elements_);
-		argo::delete_(p->hashmap[i].lock_flag_);
 		argo::delete_(p->hashmap[i].lock_);
 	}
 }

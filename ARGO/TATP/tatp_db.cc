@@ -38,14 +38,9 @@ void TATP_DB::initialize(unsigned num_subscribers, int n) {
 	// A max of 3 call forwarding entries per "special facility entry"
 	call_forwarding_table= argo::new_array<call_forwarding_entry>(3*4*num_subscribers);
 
-	lock_flag_ = argo::new_array<bool>(num_subscribers);
+	lock_ = argo::new_array<argo::globallock::cohort_lock*>(num_subscribers);
 	for(int i=0; i<num_subscribers; i++) {
-		lock_flag_[i] = false;
-	}
-
-	lock_ = argo::new_array<argo::globallock::global_tas_lock*>(num_subscribers);
-	for(int i=0; i<num_subscribers; i++) {
-		lock_[i] = argo::new_<argo::globallock::global_tas_lock>(&lock_flag_[i]);
+		lock_[i] = argo::new_<argo::globallock::cohort_lock>();
 	}
 
 
@@ -76,7 +71,6 @@ TATP_DB::~TATP_DB(){
 	argo::delete_array(access_info_table);
 	argo::delete_array(special_facility_table);
 	argo::delete_array(call_forwarding_table);
-	argo::delete_array(lock_flag_);
 	for(int i=0; i<total_subscribers; i++) {
 		argo::delete_(lock_[i]);
 	}

@@ -4,6 +4,7 @@ CC      = mpic++
 CFLAGS  =-O3 -lpthread -std=c++11
 CFLAGS +=-L${ARGO_INSTALL_DIRECTORY}/build/lib
 CFLAGS +=-I${ARGO_INSTALL_DIRECTORY}/src
+CFLAGS +=-I${ARGO_INSTALL_DIRECTORY}/src/synchronization
 CFLAGS +=-largo -largobackend-mpi -lnuma -lrt
 CFLAGS +=-Wl,-rpath=${ARGO_INSTALL_DIRECTORY}/build/lib
 

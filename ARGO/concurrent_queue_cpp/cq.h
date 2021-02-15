@@ -7,6 +7,7 @@ Ioannis Anevlavis <ioannis.anevlavis@etascale.com>
 */
 
 #include "argo.hpp"
+#include "cohort_lock.hpp"
 
 #include <vector>
 #include <pthread.h>
@@ -43,10 +44,8 @@ struct item {
 class concurrent_queue {
 	item *head;
 	item *tail;
-	bool *enq_lock_flag;
-	bool *deq_lock_flag;
-	argo::globallock::global_tas_lock *enq_lock;
-	argo::globallock::global_tas_lock *deq_lock;
+	argo::globallock::cohort_lock *enq_lock;
+	argo::globallock::cohort_lock *deq_lock;
 	int num_sub_items;
 
 	public:

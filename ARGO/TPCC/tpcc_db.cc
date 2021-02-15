@@ -47,14 +47,9 @@ void TPCC_DB::initialize(int _num_warehouses, int numThreads, int numLocks) {
 		perTxLocks[i].pop();
 	}
 
-	lock_flags = argo::new_array<bool>(numLocks);
+	locks = argo::new_array<argo::globallock::cohort_lock*>(numLocks);
 	for(int i=0; i<numLocks; i++) {
-		lock_flags[i] = false;
-	}
-
-	locks = argo::new_array<argo::globallock::global_tas_lock*>(numLocks);
-	for(int i=0; i<numLocks; i++) {
-		locks[i] = argo::new_<argo::globallock::global_tas_lock>(&lock_flags[i]);
+		locks[i] = argo::new_<argo::globallock::cohort_lock>();
 	}
 
 	std::cout<<"Allocating tables"<<std::endl;
@@ -103,7 +98,6 @@ void TPCC_DB::initialize(int _num_warehouses, int numThreads, int numLocks) {
 
 TPCC_DB::~TPCC_DB(){
 	argo::delete_array(perTxLocks);
-	argo::delete_array(lock_flags);
 	for(int i=0; i<num_locks; i++) {
 		argo::delete_(locks[i]);
 	}

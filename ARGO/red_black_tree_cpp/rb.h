@@ -7,6 +7,7 @@ Ioannis Anevlavis <ioannis.anevlavis@etascale.com>
 */
 
 #include "argo.hpp"
+#include "cohort_lock.hpp"
 
 #include <vector>
 #include <set>
@@ -59,8 +60,7 @@ class Red_Black_Tree {
 	// mutex for the whole tree
 	// note: this program has NO parallelism. Using mutex only creates a 
 	// thread-safe tree
-	bool* lock_flag;
-	argo::globallock::global_tas_lock* lock_1;
+	argo::globallock::cohort_lock* lock_1;
 
 	int tree_length;
 
