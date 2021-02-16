@@ -6,15 +6,15 @@ ArgoDSM/PThreads version:
 Ioannis Anevlavis <ioannis.anevlavis@etascale.com>
 */
 
-
 #include "cq.h"
+
 #include <iostream>
+
 /******************************************
  * tail-> item2 <- item1 <- item0 <- head *
  *        next<-item               *
  *     push > tail...head > pop      *
  ******************************************/
-
 
 void concurrent_queue::push(int val) {
 	item *new_item = argo::new_<item>();
@@ -38,7 +38,6 @@ bool concurrent_queue::pop(int &out) {
 		return false;
 	}
 	out = (new_head->si)->val;
-
 	head = new_head;
 	deq_lock->unlock();
 
@@ -46,10 +45,7 @@ bool concurrent_queue::pop(int &out) {
 	return true;
 }
 
-
-void concurrent_queue::init(int n) {
-
-	num_sub_items = n;
+void concurrent_queue::init() {
 	item *new_item = argo::new_<item>();
 	for (int i = 0; i < num_sub_items; i++) {
 		(new_item->si + i)->val = -1;
@@ -59,19 +55,20 @@ void concurrent_queue::init(int n) {
 	tail = new_item;
 }
 
-
 concurrent_queue::concurrent_queue() {
-	head = NULL; 
-	tail = NULL;
-	enq_lock = argo::new_<argo::globallock::cohort_lock>();
-	deq_lock = argo::new_<argo::globallock::cohort_lock>();
-	num_sub_items = 0;
+	head = argo::conew_<item>();
+	tail = argo::conew_<item>();
+	enq_lock = new argo::globallock::cohort_lock();
+	deq_lock = new argo::globallock::cohort_lock();
+	num_sub_items = NUM_SUB_ITEMS;
 }
 
 concurrent_queue::~concurrent_queue() {
 	int temp;
 	while(pop(temp));
 	
-	argo::delete_(enq_lock);
-	argo::delete_(deq_lock);
+	delete enq_lock;
+	delete deq_lock;
+	argo::codelete_(head);
+	argo::codelete_(tail);
 }

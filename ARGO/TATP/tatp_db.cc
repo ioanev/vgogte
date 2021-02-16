@@ -9,17 +9,25 @@ This file defines the various transactions in TATP.
 */
 
 #include "tatp_db.h"
-#include <cstdlib> // For rand
+
+#include <cstdlib>
 #include <iostream>
-//#include <queue>
-//#include <iostream>
 
-#define NUM_RNDM_SEEDS 1280
-
+extern int workrank;
 extern int numtasks;
 
 int getRand() {
 	return rand();
+}
+
+void distribute(int& beg,
+		int& end,
+		const int& loop_size,
+		const int& beg_offset,
+    		const int& less_equal){
+	int chunk = loop_size / numtasks;
+	beg = workrank * chunk + ((workrank == 0) ? beg_offset : less_equal);
+	end = (workrank != numtasks - 1) ? workrank * chunk + chunk : loop_size;
 }
 
 TATP_DB::TATP_DB(unsigned num_subscribers) {}
@@ -27,24 +35,26 @@ TATP_DB::TATP_DB(unsigned num_subscribers) {}
 void TATP_DB::initialize(unsigned num_subscribers, int n) {
 	total_subscribers = num_subscribers;
 	num_threads = n;
-	subscriber_table = argo::new_array<subscriber_entry>(num_subscribers);
+	subscriber_table = argo::conew_array<subscriber_entry>(num_subscribers);
 
 	// A max of 4 access info entries per subscriber
-	access_info_table = argo::new_array<access_info_entry>(4*num_subscribers);
+	access_info_table = argo::conew_array<access_info_entry>(4*num_subscribers);
 
 	// A max of 4 access info entries per subscriber
-	special_facility_table = argo::new_array<special_facility_entry>(4*num_subscribers);
+	special_facility_table = argo::conew_array<special_facility_entry>(4*num_subscribers);
 
 	// A max of 3 call forwarding entries per "special facility entry"
-	call_forwarding_table= argo::new_array<call_forwarding_entry>(3*4*num_subscribers);
+	call_forwarding_table= argo::conew_array<call_forwarding_entry>(3*4*num_subscribers);
 
-	lock_ = argo::new_array<argo::globallock::cohort_lock*>(num_subscribers);
+	lock_ = new argo::globallock::cohort_lock*[num_subscribers];
 	for(int i=0; i<num_subscribers; i++) {
-		lock_[i] = argo::new_<argo::globallock::cohort_lock>();
+		lock_[i] = new argo::globallock::cohort_lock();
 	}
 
+	int beg, end;
+	distribute(beg, end, 4*num_subscribers, 0, 0);
 
-	for(int i=0; i<4*num_subscribers; i++) {
+	for(int i=beg; i<end; i++) {
 		access_info_table[i].valid = false;
 		special_facility_table[i].valid = false;
 		for(int j=0; j<3; j++) {
@@ -54,9 +64,9 @@ void TATP_DB::initialize(unsigned num_subscribers, int n) {
 
 	//rndm_seeds = new std::atomic<unsigned long>[NUM_RNDM_SEEDS];
 	//rndm_seeds = (std::atomic<unsigned long>*) malloc(NUM_RNDM_SEEDS*sizeof(std::atomic<unsigned long>));
-	subscriber_rndm_seeds = argo::new_array<unsigned long>(NUM_RNDM_SEEDS);
-	vlr_rndm_seeds = argo::new_array<unsigned long>(NUM_RNDM_SEEDS);
-	rndm_seeds = argo::new_array<unsigned long>(NUM_RNDM_SEEDS);
+	subscriber_rndm_seeds = new unsigned long[NUM_RNDM_SEEDS];
+	vlr_rndm_seeds = new unsigned long[NUM_RNDM_SEEDS];
+	rndm_seeds = new unsigned long[NUM_RNDM_SEEDS];
 	//sgetRand();
 	for(int i=0; i<NUM_RNDM_SEEDS; i++) {
 		subscriber_rndm_seeds[i] = getRand()%(NUM_RNDM_SEEDS*10)+1;
@@ -67,21 +77,24 @@ void TATP_DB::initialize(unsigned num_subscribers, int n) {
 }
 
 TATP_DB::~TATP_DB(){
-	argo::delete_array(subscriber_table);
-	argo::delete_array(access_info_table);
-	argo::delete_array(special_facility_table);
-	argo::delete_array(call_forwarding_table);
 	for(int i=0; i<total_subscribers; i++) {
-		argo::delete_(lock_[i]);
+		delete lock_[i];
 	}
-	argo::delete_array(lock_);
-	argo::delete_array(subscriber_rndm_seeds);
-	argo::delete_array(vlr_rndm_seeds);
-	argo::delete_array(rndm_seeds);
+	delete[] lock_;
+	delete[] subscriber_rndm_seeds;
+	delete[] vlr_rndm_seeds;
+	delete[] rndm_seeds;
+	argo::codelete_array(subscriber_table);
+	argo::codelete_array(access_info_table);
+	argo::codelete_array(special_facility_table);
+	argo::codelete_array(call_forwarding_table);
 }
 
 void TATP_DB::populate_tables(unsigned num_subscribers) {
-	for(int i=0; i<num_subscribers; i++) {
+	int beg, end;
+	distribute(beg, end, num_subscribers, 0, 0);
+
+	for(int i=beg; i<end; i++) {
 		fill_subscriber_entry(i);
 		int num_ai_types = getRand()%4 + 1; // num_ai_types varies from 1->4
 		for(int j=1; j<=num_ai_types; j++) {
@@ -96,6 +109,7 @@ void TATP_DB::populate_tables(unsigned num_subscribers) {
 			}
 		}
 	}
+	argo::barrier();
 }
 
 void TATP_DB::fill_subscriber_entry(unsigned _s_id) {
@@ -287,4 +301,3 @@ unsigned long TATP_DB::get_random_vlr(int thread_id) {
 	tmp = vlr_rndm_seeds[thread_id*10] = (vlr_rndm_seeds[thread_id*10] * 16807)%2147483647;
 	return (1 + tmp%(2^32));
 }
-

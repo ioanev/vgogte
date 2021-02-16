@@ -10,6 +10,9 @@ This file defines RB tree functions.
 
 #include "rb.h"
 
+// Cohort lock for the whole tree
+extern argo::globallock::cohort_lock* lock_1;
+
 void Red_Black_Tree::left_rotation(Node* x) {
 	Node* y = x->right;
 	recordChange(x);
@@ -64,7 +67,6 @@ void Red_Black_Tree::right_rotation(Node* x) {
 	recordChange(x);
 	x->parent = y;
 }
-
 
 void Red_Black_Tree::rb_insert(int val) {
 	Node* z = createNode(val);
@@ -128,7 +130,6 @@ void Red_Black_Tree::rb_insert(Node* z) {
 
 	insert_fix_up(z);
 }
-
 
 void Red_Black_Tree::insert_fix_up(Node* z) {
 	Node* y = NULL;
@@ -226,7 +227,6 @@ Node* Red_Black_Tree::successor(Node* x) {
 	return current;
 }
 
-
 void Red_Black_Tree::rb_delete(Node* z) {
 	Node *x, *y;
 	Color color;
@@ -319,8 +319,6 @@ void Red_Black_Tree::rb_delete(Node* z) {
 		//        nvm_free(z);
 	}
 }
-
-
 
 void Red_Black_Tree::delete_fix_up(Node* x, Node* y) {
 	Node* w;
@@ -459,7 +457,7 @@ void Red_Black_Tree::initialize(Node* root, int* array, unsigned length) {
 
 	tree_length = length;
 	//init mutex
-	lock_1 = argo::new_<argo::globallock::cohort_lock>();
+	// lock_1 = argo::new_<argo::globallock::cohort_lock>();
 	return;
 }
 
@@ -480,7 +478,7 @@ Red_Black_Tree::Red_Black_Tree(Node* root, int* array, unsigned length) {
 
 	tree_length = length;
 	//init mutex
-	lock_1 = argo::new_<argo::globallock::cohort_lock>();
+	// lock_1 = argo::new_<argo::globallock::cohort_lock>();
 }
 
 Node* Red_Black_Tree::createNode(int _val) {

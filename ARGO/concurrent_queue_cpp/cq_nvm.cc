@@ -6,18 +6,15 @@ ArgoDSM/PThreads version:
 Ioannis Anevlavis <ioannis.anevlavis@etascale.com>
 */
 
-#include <iostream>
-#include <cstdlib>
-#include <sys/time.h>
-#include <string>
-#include <fstream>
-#include <unistd.h>
-
 #include "cq.h"
 
-#define NUM_SUB_ITEMS 64 
-#define NUM_OPS 10000
-#define NUM_THREADS 4 
+#include <cstdlib>
+#include <unistd.h>
+#include <sys/time.h>
+
+#include <string>
+#include <fstream>
+#include <iostream>
 
 int workrank;
 int numtasks;
@@ -28,13 +25,12 @@ int numtasks;
 concurrent_queue* CQ;
 
 void initialize() {
-	CQ = argo::conew_<concurrent_queue>();
-	WEXEC(CQ->init(NUM_SUB_ITEMS));
+	CQ = new concurrent_queue;
+	WEXEC(CQ->init());
 	argo::barrier();
 
 	WEXEC(fprintf(stderr, "Created cq at %p\n", (void *)CQ));
 }
-
 
 void* run_stub(void* ptr) {
 	int ret;
@@ -53,6 +49,7 @@ int main(int argc, char** argv) {
 	WEXEC(std::cout << "In main\n" << std::endl);
 	struct timeval tv_start;
 	struct timeval tv_end;
+	
 	std::ofstream fexec;
 	WEXEC(fexec.open("exec.csv",std::ios_base::app));
 
@@ -64,7 +61,6 @@ int main(int argc, char** argv) {
 	for (int i = 0; i < NUM_THREADS; ++i) {
 		pthread_create(&threads[i], NULL, &run_stub, NULL);
 	}
-
 	for (int i = 0; i < NUM_THREADS; ++i) {
 		pthread_join(threads[i], NULL);
 	}
@@ -74,11 +70,10 @@ int main(int argc, char** argv) {
 	WEXEC(fprintf(stderr, "time elapsed %ld us\n",
 				tv_end.tv_usec - tv_start.tv_usec +
 				(tv_end.tv_sec - tv_start.tv_sec) * 1000000));
-
 	WEXEC(fexec << "CQ" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl);
 	WEXEC(fexec.close());
 
-	argo::codelete_(CQ);
+	delete CQ;
 
 	argo::finalize();
 

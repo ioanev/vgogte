@@ -11,14 +11,15 @@ This microbenchmark swaps two items in an array.
 #include "argo.hpp"
 #include "cohort_lock.hpp"
 
-#include <iostream>
-#include <pthread.h>
 #include <cstdint>
 #include <assert.h>
-#include <sys/time.h>
 #include <unistd.h>
+#include <pthread.h>
+#include <sys/time.h>
+
 #include <string>
 #include <fstream>
+#include <iostream>
 
 #define NUM_SUB_ITEMS 64
 #define NUM_OPS 1000
@@ -31,6 +32,16 @@ int numtasks;
 // Macro for only node0 to do stuff
 #define WEXEC(inst) ({ if (workrank == 0) inst; })
 
+void distribute(int& beg,
+		int& end,
+		const int& loop_size,
+		const int& beg_offset,
+    		const int& less_equal){
+	int chunk = loop_size / numtasks;
+	beg = workrank * chunk + ((workrank == 0) ? beg_offset : less_equal);
+	end = (workrank != numtasks - 1) ? workrank * chunk + chunk : loop_size;
+}
+
 struct Element {
 	int32_t value_[NUM_SUB_ITEMS];
 	Element& operator=(Element& other) {
@@ -40,7 +51,6 @@ struct Element {
 		return *this;
 	}
 };
-
 
 struct Datum {
 	// pointer to the hashmap
@@ -55,38 +65,45 @@ struct sps {
 	int num_sub_items_;
 };
 
-
 sps* S;
 
 void datum_init(sps* s) {
 	for(int i = 0; i < NUM_ROWS; i++) {
-		s->array[i].elements_ = argo::new_<Element>();
-		s->array[i].lock_ = argo::new_<argo::globallock::cohort_lock>();
+		s->array[i].elements_ = argo::conew_<Element>();
+		s->array[i].lock_ = new argo::globallock::cohort_lock();
+	}
+	WEXEC(std::cout << "Finished allocating elems & locks" << std::endl);
 
+	int beg, end;
+	distribute(beg, end, NUM_ROWS, 0, 0);
+
+	std::cout << "rank: "                << workrank
+	          << ", initializing from: " << beg
+		  << " to: "                 << end
+		  << std::endl;
+
+	for(int i = beg; i < end; i++)
 		for(int j = 0; j < NUM_SUB_ITEMS; j++)
 			s->array[i].elements_->value_[j] = i+j;
-	}
+	WEXEC(std::cout << "Finished team process initialization" << std::endl);
 }
-
 
 void datum_free(sps* s) {
 	for(int i = 0; i < NUM_ROWS; i++) {
-		argo::delete_(s->array[i].elements_);
-		argo::delete_(s->array[i].lock_);
+		delete s->array[i].lock_;
+		argo::codelete_(s->array[i].elements_);
 	}
 }
 
 void initialize() {
-	S = argo::conew_<sps>();
+	S = new sps;
 	S->num_rows_ = NUM_ROWS;
 	S->num_sub_items_ = NUM_SUB_ITEMS;
-	S->array = argo::conew_array<Datum>(NUM_ROWS);
-	WEXEC(datum_init(S));
+	S->array = new Datum[NUM_ROWS];
+	datum_init(S);
 	argo::barrier();
 
-
 	WEXEC(fprintf(stderr, "Created array at %p\n", (void *)S->array));
-
 }
 
 bool swap(unsigned int index_a, unsigned int index_b) {
@@ -141,7 +158,6 @@ int main(int argc, char** argv) {
 	std::ofstream fexec;
 	WEXEC(fexec.open("exec.csv",std::ios_base::app));
 
-
 	// This contains the Atlas restart code to find any reusable data
 	initialize();
 
@@ -150,25 +166,22 @@ int main(int argc, char** argv) {
 	gettimeofday(&tv_start, NULL);
 	for (int i = 0; i < NUM_THREADS; ++i) {
 		pthread_create(&threads[i], NULL, &run_stub, NULL);
-	}   
-
+	}
 	for (int i = 0; i < NUM_THREADS; ++i) {
 		pthread_join(threads[i], NULL);
 	}
 	argo::barrier();
-
 	gettimeofday(&tv_end, NULL);
+	
 	WEXEC(fprintf(stderr, "time elapsed %ld us\n",
 				tv_end.tv_usec - tv_start.tv_usec +
 				(tv_end.tv_sec - tv_start.tv_sec) * 1000000));
-
 	WEXEC(fexec << "SPS" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl);
-
 	WEXEC(fexec.close());
 
-	WEXEC(datum_free(S));
-	argo::codelete_array(S->array);
-	argo::codelete_(S);
+	datum_free(S);
+	delete[] S->array;
+	delete S;
 
 	argo::finalize();
 

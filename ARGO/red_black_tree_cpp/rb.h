@@ -9,14 +9,18 @@ Ioannis Anevlavis <ioannis.anevlavis@etascale.com>
 #include "argo.hpp"
 #include "cohort_lock.hpp"
 
-#include <vector>
-#include <set>
-#include <pthread.h>
 #include <cstdlib>
 #include <assert.h>
+#include <pthread.h>
+
+#include <set>
+#include <vector>
 #include <iostream>
 
 #define TREE_LENGTH 100
+#define NUM_UPDATES_PER_CS 64 
+#define NUM_OPS 10000
+#define NUM_THREADS 4
 
 #define MAX_LEN 16384  // Max total size = 512KB
 
@@ -41,7 +45,6 @@ struct Node {
 //      http://www.cnblogs.com/skywang12345/p/3624291.html
 //      This blog uses the algorithm from "Introduction to Algorithms".
 
-
 class Red_Black_Tree {
 	// roots of the two trees
 	Node* root_1;
@@ -60,7 +63,7 @@ class Red_Black_Tree {
 	// mutex for the whole tree
 	// note: this program has NO parallelism. Using mutex only creates a 
 	// thread-safe tree
-	argo::globallock::cohort_lock* lock_1;
+	// argo::globallock::cohort_lock* lock_1;
 
 	int tree_length;
 
@@ -110,4 +113,3 @@ class Red_Black_Tree {
 	// note: only rb_delete_or_insert is persistent and thread-safe!
 	bool rb_delete_or_insert(int num_updates);
 };
-

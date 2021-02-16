@@ -9,13 +9,15 @@ Ioannis Anevlavis <ioannis.anevlavis@etascale.com>
 #include "argo.hpp"
 #include "cohort_lock.hpp"
 
-#include <vector>
-#include <pthread.h>
 #include <cstdlib>
-#include <pthread.h>
 #include <cstdint>
+#include <pthread.h>
+
+#include <vector>
 
 #define NUM_SUB_ITEMS 64 
+#define NUM_OPS 10000
+#define NUM_THREADS 4 
 
 typedef struct item item;
 
@@ -53,5 +55,5 @@ class concurrent_queue {
 	~concurrent_queue();
 	void push(int);
 	bool pop(int&);
-	void init(int n);
+	void init();
 };

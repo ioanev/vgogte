@@ -8,20 +8,27 @@ Ioannis Anevlavis <ioannis.anevlavis@etascale.com>
 This file defines the various functions of the tpcc database
 */
 
-
-#include <cstdlib>
-#include <iostream>
-#include <queue>
-#include <cstring> // For memcpy
-#include <algorithm> // for sort
-
 #include "tpcc_db.h"
 
-//#define NEW_ORDER_LOCK 10;
-#define TPCC_DEBUG 0
-//#define NUM_ITEMS 1000
-#define NUM_ITEMS 100
-#define NUM_RNDM_SEEDS 1280
+#include <cstring>
+#include <cstdlib>
+
+#include <queue>
+#include <algorithm>
+#include <iostream>
+
+extern int workrank;
+extern int numtasks;
+
+void distribute(int& beg,
+		int& end,
+		const int& loop_size,
+		const int& beg_offset,
+    		const int& less_equal){
+	int chunk = loop_size / numtasks;
+	beg = workrank * chunk + ((workrank == 0) ? beg_offset : less_equal);
+	end = (workrank != numtasks - 1) ? workrank * chunk + chunk : loop_size;
+}
 
 TPCC_DB::TPCC_DB() {}
 
@@ -41,92 +48,94 @@ void TPCC_DB::initialize(int _num_warehouses, int numThreads, int numLocks) {
 		random_3000[i] = random_3000[rand_loc];
 		random_3000[rand_loc] = temp;
 	}
-	perTxLocks = argo::new_array<queue_t>(numThreads);
+	
+	perTxLocks = new queue_t[numThreads];
 	for(int i=0; i<numThreads; i++) {
 		perTxLocks[i].push(0);
 		perTxLocks[i].pop();
 	}
 
-	locks = argo::new_array<argo::globallock::cohort_lock*>(numLocks);
+	locks = new argo::globallock::cohort_lock*[numLocks];
 	for(int i=0; i<numLocks; i++) {
-		locks[i] = argo::new_<argo::globallock::cohort_lock>();
+		locks[i] = new argo::globallock::cohort_lock();
 	}
 
-	std::cout<<"Allocating tables"<<std::endl;
+	WEXEC(std::cout<<"Allocating tables"<<std::endl);
 
-	warehouse = argo::new_array<warehouse_entry>(num_warehouses);
-	district = argo::new_array<district_entry>(num_districts);
-	customer = argo::new_array<customer_entry>(num_customers);
-	stock = argo::new_array<stock_entry>(num_stocks);
+	warehouse = argo::conew_array<warehouse_entry>(num_warehouses);
+	district = argo::conew_array<district_entry>(num_districts);
+	customer = argo::conew_array<customer_entry>(num_customers);
+	stock = argo::conew_array<stock_entry>(num_stocks);
 
 	int num_items = NUM_ITEMS;
-	item = argo::new_array<item_entry>(num_items);
+	item = argo::conew_array<item_entry>(num_items);
 
 	int num_histories = num_customers;
 	int num_orders = 3000*num_districts;
 	int num_order_lines = 15*num_orders; // Max possible, average is 10*num_orders
 	int num_new_orders = 900*num_districts;
 
-	history = argo::new_array<history_entry>(num_histories);
-
-	order = argo::new_array<order_entry>(num_orders);
-	new_order = argo::new_array<new_order_entry>(num_new_orders);
-	order_line = argo::new_array<order_line_entry>(num_order_lines);
-
-	rndm_seeds = argo::new_array<unsigned long>(NUM_RNDM_SEEDS);
+	history = argo::conew_array<history_entry>(num_histories);
+	order = argo::conew_array<order_entry>(num_orders);
+	new_order = argo::conew_array<new_order_entry>(num_new_orders);
+	order_line = argo::conew_array<order_line_entry>(num_order_lines);
+	
+	rndm_seeds = new unsigned long[NUM_RNDM_SEEDS];
 	for(int i=0; i<NUM_RNDM_SEEDS; i++) {
 		srand(i);
 		rndm_seeds[i] = rand_local(1,NUM_RNDM_SEEDS*10);
 	}
 
-	std::cout<<"finished allocating tables"<<std::endl;
+	WEXEC(std::cout<<"Finished allocating tables"<<std::endl);
 
-	std::cout<<"warehouse_entry: "<<sizeof(warehouse_entry)<<std::endl;
-	std::cout<<"district_entry: "<<sizeof(district_entry)<<std::endl;
-	std::cout<<"customer_entry: "<<sizeof(customer_entry)<<std::endl;
-	std::cout<<"stock_entry: "<<sizeof(stock_entry)<<std::endl;
-	std::cout<<"item_entry: "<<sizeof(item_entry)<<std::endl;
-	std::cout<<"history_entry: "<<sizeof(history_entry)<<std::endl;
-	std::cout<<"order_entry: "<<sizeof(order_entry)<<std::endl;
-	std::cout<<"new_order_entry: "<<sizeof(new_order_entry)<<std::endl;
-	std::cout<<"order_line_entry: "<<sizeof(order_line_entry)<<std::endl;
+	WEXEC(std::cout<<"warehouse_entry: "<<sizeof(warehouse_entry)<<std::endl);
+	WEXEC(std::cout<<"district_entry: "<<sizeof(district_entry)<<std::endl);
+	WEXEC(std::cout<<"customer_entry: "<<sizeof(customer_entry)<<std::endl);
+	WEXEC(std::cout<<"stock_entry: "<<sizeof(stock_entry)<<std::endl);
+	WEXEC(std::cout<<"item_entry: "<<sizeof(item_entry)<<std::endl);
+	WEXEC(std::cout<<"history_entry: "<<sizeof(history_entry)<<std::endl);
+	WEXEC(std::cout<<"order_entry: "<<sizeof(order_entry)<<std::endl);
+	WEXEC(std::cout<<"new_order_entry: "<<sizeof(new_order_entry)<<std::endl);
+	WEXEC(std::cout<<"order_line_entry: "<<sizeof(order_line_entry)<<std::endl);
 }
 
-
-
-
-
 TPCC_DB::~TPCC_DB(){
-	argo::delete_array(perTxLocks);
+	delete[] perTxLocks;
 	for(int i=0; i<num_locks; i++) {
-		argo::delete_(locks[i]);
+		delete locks[i];
 	}
-	argo::delete_array(locks);
-	argo::delete_array(warehouse);
-	argo::delete_array(district);
-	argo::delete_array(customer);
-	argo::delete_array(stock);
-	argo::delete_array(item);
-	argo::delete_array(history);
-	argo::delete_array(order);
-	argo::delete_array(new_order);
-	argo::delete_array(order_line);
-	argo::delete_array(rndm_seeds);
+	delete[] locks;
+	delete[] rndm_seeds;
+	argo::codelete_array(warehouse);
+	argo::codelete_array(district);
+	argo::codelete_array(customer);
+	argo::codelete_array(stock);
+	argo::codelete_array(item);
+	argo::codelete_array(history);
+	argo::codelete_array(order);
+	argo::codelete_array(new_order);
+	argo::codelete_array(order_line);
 }
 
 void TPCC_DB::populate_tables() {
-	std::cout<<"populating item table"<<std::endl;
-	for(int i=0; i<NUM_ITEMS; i++) {
+	WEXEC(std::cout<<"Populating item table"<<std::endl);
+	
+	int beg, end;
+	distribute(beg, end, NUM_ITEMS, 0, 0);
+	
+	for(int i=beg; i<end; i++) {
 		fill_item_entry(i+1);
 	}
-	std::cout<<"finished populating item table"<<std::endl;
+	WEXEC(std::cout<<"Finished populating item table"<<std::endl);
 
-	for(int i=0; i<num_warehouses; i++) {
+	distribute(beg, end, num_warehouses, 0, 0);
+
+	for(int i=beg; i<end; i++) {
 		fill_warehouse_entry(i+1);
 		for(int j=0; j<NUM_ITEMS; j++) {
 			fill_stock_entry(i+1, j+1);
 		}
-		std::cout<<"finished populating stock table"<<std::endl;
+		std::cout<<"Finished populating stock table"<<std::endl;
 		for(int j=0; j<10; j++) {
 			fill_district_entry(i+1, j+1);
 			for(int k=0; k<3000; k++) {
@@ -139,6 +148,7 @@ void TPCC_DB::populate_tables() {
 			}
 		}
 	}
+	argo::barrier();
 }
 
 void TPCC_DB::acquire_locks(int threadId, queue_t &requestedLocks) {
@@ -162,8 +172,6 @@ void TPCC_DB::release_locks(int threadId) {
 		locks[i]->unlock();
 	}
 }
-
-
 
 void TPCC_DB::fill_item_entry(int _i_id) {
 	int indx = (_i_id-1);
@@ -354,6 +362,7 @@ void TPCC_DB::random_a_string(int min, int max, char* string_ptr) {
 	}
 	//std::cout<<"exiting random a string"<<std::endl;
 }
+
 void TPCC_DB::random_a_original_string(int min, int max, int probability, char* string_ptr) {
 	//FIXME: use probability and add ORIGINAL
 	random_a_string(min, max,string_ptr);
@@ -508,7 +517,6 @@ void TPCC_DB::new_order_tx(int threadId, int w_id, int d_id, int c_id) {
 	release_locks(threadId);
 	return;
 }
-
 
 unsigned long TPCC_DB::get_random(int thread_id) {
 	unsigned long tmp;

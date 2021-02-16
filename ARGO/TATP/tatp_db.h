@@ -13,13 +13,18 @@ the database.
 #include "cohort_lock.hpp"
 
 #include <cstdint>
-//#include <atomic>
 #include <pthread.h>
 
 #include "tableEntries.h"
 
-class TATP_DB{
+#define NUM_SUBSCRIBERS 10000
+#define NUM_OPS_PER_CS 2
+#define NUM_OPS 10000
+#define NUM_THREADS 4
 
+#define NUM_RNDM_SEEDS 1280
+
+class TATP_DB{
 	private:
 		long total_subscribers; // Holds the number of subscribers
 		int num_threads;
@@ -32,8 +37,6 @@ class TATP_DB{
 		unsigned long* subscriber_rndm_seeds;
 		unsigned long* vlr_rndm_seeds;
 		unsigned long* rndm_seeds;
-
-
 	public:
 		TATP_DB() {}
 		TATP_DB(unsigned num_subscribers); // Constructs and sizes tables as per num_subscribers

@@ -11,17 +11,29 @@ This file declares the tpcc database and the accesor transactions.
 #include "argo.hpp"
 #include "cohort_lock.hpp"
 
-#include "table_entries.h"
 #include <atomic>
-#include "simple_queue.h"
-#include <pthread.h>
 #include <cstdlib>
+#include <pthread.h>
+
+#include "table_entries.h"
+#include "simple_queue.h"
+
+#define NUM_ORDERS 10000
+#define NUM_THREADS 4 
+
+#define NUM_WAREHOUSES 1
+#define NUM_ITEMS 100
+#define NUM_LOCKS NUM_WAREHOUSES*10 + NUM_WAREHOUSES*NUM_ITEMS
+
+#define TPCC_DEBUG 0
+#define NUM_RNDM_SEEDS 1280
+
+// Macro for only node0 to do stuff
+#define WEXEC(inst) ({ if (workrank == 0) inst; })
 
 typedef simple_queue queue_t;
 
-
 class TPCC_DB {
-
 	private:
 		// For the deallocation of the locks
 		short num_locks;
@@ -46,9 +58,7 @@ class TPCC_DB {
 
 		queue_t* perTxLocks; // Array of queues of locks held by active Tx
 		argo::globallock::cohort_lock** locks; // Array of locks held by the TxEngn. RDSs acquire locks through the TxEngn
-
 	public:
-
 		TPCC_DB();
 		~TPCC_DB();
 
@@ -90,5 +100,4 @@ class TPCC_DB {
 
 		void acquire_locks(int thread_id, queue_t &reqLocks);
 		void release_locks(int thread_id);
-
 };
