@@ -1,12 +1,14 @@
-export ARGO_INSTALL_DIRECTORY=${HOME}/argodsm
+# Set your ArgoDSM installation directory
+export ARGO_INSTALL_DIRECTORY=${HOME}/argodsm/install
 
-CC      = mpic++
-CFLAGS  =-O3 -lpthread -std=c++11
-CFLAGS +=-L${ARGO_INSTALL_DIRECTORY}/build/lib
-CFLAGS +=-I${ARGO_INSTALL_DIRECTORY}/src
-CFLAGS +=-I${ARGO_INSTALL_DIRECTORY}/src/synchronization
-CFLAGS +=-largo -largobackend-mpi -lnuma -lrt
-CFLAGS +=-Wl,-rpath=${ARGO_INSTALL_DIRECTORY}/build/lib
+CXX      =mpic++
+CXXFLAGS =-O3 -lpthread -std=c++11
+
+IDFLAGS +=-I${ARGO_INSTALL_DIRECTORY}/include/argo
+IDFLAGS +=-I${ARGO_INSTALL_DIRECTORY}/include/argo/synchronization
+LDFLAGS +=-L${ARGO_INSTALL_DIRECTORY}/lib
+LDFLAGS +=-Wl,-rpath=${ARGO_INSTALL_DIRECTORY}/lib
+LDLIBS  +=-largo -largobackend-mpi -lnuma -lrt
 
 SOURCES=sps_nvm.cc
 OBJECTS=$(SOURCES:.cpp=.o)
@@ -15,7 +17,7 @@ OBJECTS=$(SOURCES:.cpp=.o)
 all: $(SOURCES) $(EXECUTABLE)
 
 $(EXECUTABLE): $(SOURCES)
-	$(CC) $(SOURCES) -o $@ $(CFLAGS)
+	$(CXX) $(CXXFLAGS) -o $@ $(IDFLAGS) $(LDFLAGS) $(SOURCES) $(LDLIBS)
 
 clean:
 	rm -rf $(EXECUTABLE)
