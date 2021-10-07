@@ -24,6 +24,8 @@ the database.
 
 #define NUM_RNDM_SEEDS 1280
 
+#define ENABLE_VERIFICATION 0
+
 class TATP_DB{
 	private:
 		long total_subscribers; // Holds the number of subscribers
@@ -58,6 +60,7 @@ class TATP_DB{
 		void update_location(int threadId, int num_ops); // Tx: updates location for a random subscriber
 		void insert_call_forwarding(int threadId); // Tx: Inserts into call forwarding table for a random user
 		void delete_call_forwarding(int threadId); // Tx: Deletes call forwarding for a random user
+		void verify();
 
 		unsigned long get_random(int thread_id, int min, int max);
 		unsigned long get_random(int thread_id);

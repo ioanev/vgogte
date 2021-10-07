@@ -150,7 +150,12 @@ void TATP_DB::fill_subscriber_entry(unsigned _s_id) {
 	subscriber_table[_s_id].byte2_10 = (short) (getRand()%256);
 
 	subscriber_table[_s_id].msc_location = getRand()%(2^32 - 1) + 1;
+
+#if ENABLE_VERIFICATION == 1
+	subscriber_table[_s_id].vlr_location = 0;
+#else
 	subscriber_table[_s_id].vlr_location = getRand()%(2^32 - 1) + 1;
+#endif
 }
 
 void TATP_DB::fill_access_info_entry(unsigned _s_id, short _ai_type) {
@@ -251,10 +256,28 @@ void TATP_DB::update_location(int threadId, int num_ops) {
 	rndm_s_id = get_random_s_id(threadId)-1;
 	//rndm_s_id /=total_subscribers; // with this rndm_s_id is always 0
 	lock_[rndm_s_id]->lock();
+#if ENABLE_VERIFICATION == 1
+	subscriber_table[rndm_s_id].vlr_location += 1;
+#else
 	subscriber_table[rndm_s_id].vlr_location = get_random_vlr(threadId);
+#endif
 	lock_[rndm_s_id]->unlock();
 
 	return;
+}
+
+void TATP_DB::verify() {
+	long acc = 0;
+	for (long i = 0; i < total_subscribers; ++i)
+		acc += subscriber_table[i].vlr_location;
+	
+	long ops = NUM_THREADS*numtasks;
+	ops *= NUM_OPS/(NUM_THREADS*numtasks);
+	
+	if (acc == ops)
+		std::cout << "VERIFICATION: SUCCESS" << std::endl;
+	else
+		std::cout << "VERIFICATION: FAILURE" << std::endl;
 }
 
 void TATP_DB::insert_call_forwarding(int threadId) {

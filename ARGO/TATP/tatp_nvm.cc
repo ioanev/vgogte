@@ -79,6 +79,10 @@ int main(int argc, char* argv[]) {
 	}
 	argo::barrier();
 	gettimeofday(&tv_end, NULL);
+
+#if ENABLE_VERIFICATION == 1
+	WEXEC(my_tatp_db->verify());
+#endif
 	
 	WEXEC(fprintf(stderr, "time elapsed %ld us\n",
 				tv_end.tv_usec - tv_start.tv_usec +
