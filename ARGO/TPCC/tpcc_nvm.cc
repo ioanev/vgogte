@@ -28,7 +28,7 @@ void initialize() {
 	tpcc_db->initialize(NUM_WAREHOUSES, NUM_THREADS*numtasks, NUM_LOCKS);
 	argo::barrier();
 	
-	WEXEC(fprintf(stderr, "Created tpcc at %p\n", (void *)tpcc_db));
+	MAIN_PROC(workrank, fprintf(stderr, "Created tpcc at %p\n", (void *)tpcc_db));
 }
 
 //void new_orders(TxEngine* tx_engine, int tx_engn_type, TPCC_DB* tpcc_db, int thread_id, int num_orders, int num_threads, int num_strands_per_thread, std::atomic<bool>*wait) {
@@ -52,19 +52,19 @@ int main(int argc, char* argv[]) {
 	workrank = argo::node_id();
 	numtasks = argo::number_of_nodes();
 
-	WEXEC(std::cout<<"In main"<<std::endl);
+	MAIN_PROC(workrank, std::cout<<"In main"<<std::endl);
 	struct timeval tv_start;
 	struct timeval tv_end;
 
 	std::ofstream fexec;
-	WEXEC(fexec.open("exec.csv",std::ios_base::app));
+	MAIN_PROC(workrank, fexec.open("exec.csv",std::ios_base::app));
 
 	initialize();
-	WEXEC(std::cout<<"num_threads, num_orders = "<< NUM_THREADS*numtasks <<", "<<NUM_ORDERS <<std::endl);
-	WEXEC(std::cout<<"Done with initialization"<<std::endl);
+	MAIN_PROC(workrank, std::cout<<"num_threads, num_orders = "<< NUM_THREADS*numtasks <<", "<<NUM_ORDERS <<std::endl);
+	MAIN_PROC(workrank, std::cout<<"Done with initialization"<<std::endl);
 
 	tpcc_db->populate_tables();
-	WEXEC(std::cout<<"Done with populating tables"<<std::endl);
+	MAIN_PROC(workrank, std::cout<<"Done with populating tables"<<std::endl);
 
 	pthread_t threads[NUM_THREADS];
 	int global_tid[NUM_THREADS];
@@ -80,15 +80,15 @@ int main(int argc, char* argv[]) {
 	argo::barrier();
 	gettimeofday(&tv_end, NULL);
 
-	WEXEC(fprintf(stderr, "time elapsed %ld us\n",
+	MAIN_PROC(workrank, fprintf(stderr, "time elapsed %ld us\n",
 				tv_end.tv_usec - tv_start.tv_usec +
 				(tv_end.tv_sec - tv_start.tv_sec) * 1000000));
-	WEXEC(fexec << "TPCC" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl);
-	WEXEC(fexec.close());
+	MAIN_PROC(workrank, fexec << "TPCC" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl);
+	MAIN_PROC(workrank, fexec.close());
 	
 	delete tpcc_db;
 
-	WEXEC(std::cout<<"Done with threads"<<std::endl);
+	MAIN_PROC(workrank, std::cout<<"Done with threads"<<std::endl);
 
 	argo::finalize();
 

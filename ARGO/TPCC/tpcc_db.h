@@ -29,7 +29,10 @@ This file declares the tpcc database and the accesor transactions.
 #define NUM_RNDM_SEEDS 1280
 
 // Macro for only node0 to do stuff
-#define WEXEC(inst) ({ if (workrank == 0) inst; })
+#define MAIN_PROC(rank, inst) \
+do { \
+	if ((rank) == 0) { inst; } \
+} while (0)
 
 typedef simple_queue queue_t;
 

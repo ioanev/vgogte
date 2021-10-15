@@ -60,7 +60,7 @@ void TPCC_DB::initialize(int _num_warehouses, int numThreads, int numLocks) {
 		locks[i] = new argo::globallock::cohort_lock();
 	}
 
-	WEXEC(std::cout<<"Allocating tables"<<std::endl);
+	MAIN_PROC(workrank, std::cout<<"Allocating tables"<<std::endl);
 
 	warehouse = argo::conew_array<warehouse_entry>(num_warehouses);
 	district = argo::conew_array<district_entry>(num_districts);
@@ -86,17 +86,17 @@ void TPCC_DB::initialize(int _num_warehouses, int numThreads, int numLocks) {
 		rndm_seeds[i] = rand_local(1,NUM_RNDM_SEEDS*10);
 	}
 
-	WEXEC(std::cout<<"Finished allocating tables"<<std::endl);
+	MAIN_PROC(workrank, std::cout<<"Finished allocating tables"<<std::endl);
 
-	WEXEC(std::cout<<"warehouse_entry: "<<sizeof(warehouse_entry)<<std::endl);
-	WEXEC(std::cout<<"district_entry: "<<sizeof(district_entry)<<std::endl);
-	WEXEC(std::cout<<"customer_entry: "<<sizeof(customer_entry)<<std::endl);
-	WEXEC(std::cout<<"stock_entry: "<<sizeof(stock_entry)<<std::endl);
-	WEXEC(std::cout<<"item_entry: "<<sizeof(item_entry)<<std::endl);
-	WEXEC(std::cout<<"history_entry: "<<sizeof(history_entry)<<std::endl);
-	WEXEC(std::cout<<"order_entry: "<<sizeof(order_entry)<<std::endl);
-	WEXEC(std::cout<<"new_order_entry: "<<sizeof(new_order_entry)<<std::endl);
-	WEXEC(std::cout<<"order_line_entry: "<<sizeof(order_line_entry)<<std::endl);
+	MAIN_PROC(workrank, std::cout<<"warehouse_entry: "<<sizeof(warehouse_entry)<<std::endl);
+	MAIN_PROC(workrank, std::cout<<"district_entry: "<<sizeof(district_entry)<<std::endl);
+	MAIN_PROC(workrank, std::cout<<"customer_entry: "<<sizeof(customer_entry)<<std::endl);
+	MAIN_PROC(workrank, std::cout<<"stock_entry: "<<sizeof(stock_entry)<<std::endl);
+	MAIN_PROC(workrank, std::cout<<"item_entry: "<<sizeof(item_entry)<<std::endl);
+	MAIN_PROC(workrank, std::cout<<"history_entry: "<<sizeof(history_entry)<<std::endl);
+	MAIN_PROC(workrank, std::cout<<"order_entry: "<<sizeof(order_entry)<<std::endl);
+	MAIN_PROC(workrank, std::cout<<"new_order_entry: "<<sizeof(new_order_entry)<<std::endl);
+	MAIN_PROC(workrank, std::cout<<"order_line_entry: "<<sizeof(order_line_entry)<<std::endl);
 }
 
 TPCC_DB::~TPCC_DB(){
@@ -118,7 +118,7 @@ TPCC_DB::~TPCC_DB(){
 }
 
 void TPCC_DB::populate_tables() {
-	WEXEC(std::cout<<"Populating item table"<<std::endl);
+	MAIN_PROC(workrank, std::cout<<"Populating item table"<<std::endl);
 	
 	int beg, end;
 	distribute(beg, end, NUM_ITEMS, 0, 0);
@@ -126,7 +126,7 @@ void TPCC_DB::populate_tables() {
 	for(int i=beg; i<end; i++) {
 		fill_item_entry(i+1);
 	}
-	WEXEC(std::cout<<"Finished populating item table"<<std::endl);
+	MAIN_PROC(workrank, std::cout<<"Finished populating item table"<<std::endl);
 
 	distribute(beg, end, num_warehouses, 0, 0);
 

@@ -25,11 +25,14 @@ This file uses the PersistentCache to enable multi-threaded updates to it.
 #define NUM_UPDATES 1000
 #define NUM_THREADS 4
 
+// Macro for only node0 to do stuff
+#define MAIN_PROC(rank, inst) \
+do { \
+	if ((rank) == 0) { inst; } \
+} while (0)
+
 int workrank;
 int numtasks;
-
-// Macro for only node0 to do stuff
-#define WEXEC(inst) ({ if (workrank == 0) inst; })
 
 void distribute(int& beg,
 		int& end,
@@ -69,7 +72,7 @@ void datum_init(pc* p) {
 		p->hashmap[i].elements_ = argo::conew_<Element>();
 		p->hashmap[i].lock_ = new argo::globallock::cohort_lock();
 	}
-	WEXEC(std::cout << "Finished allocating elems & locks" << std::endl);
+	MAIN_PROC(workrank, std::cout << "Finished allocating elems & locks" << std::endl);
 
 	int beg, end;
 	distribute(beg, end, NUM_ROWS, 0, 0);
@@ -82,7 +85,7 @@ void datum_init(pc* p) {
 	for(int i = beg; i < end; i++)
 		for(int j = 0; j < NUM_ELEMS_PER_DATUM; j++)
 			p->hashmap[i].elements_->value_[j] = 0;
-	WEXEC(std::cout << "Finished team process initialization" << std::endl);
+	MAIN_PROC(workrank, std::cout << "Finished team process initialization" << std::endl);
 }
 
 void datum_free(pc* p) {
@@ -109,7 +112,7 @@ void initialize() {
 	datum_init(P);
 	argo::barrier();
 
-	WEXEC(fprintf(stderr, "Created hashmap at %p\n", (void *)P->hashmap));
+	MAIN_PROC(workrank, fprintf(stderr, "Created hashmap at %p\n", (void *)P->hashmap));
 }
 
 void* CacheUpdates(void* arguments) {
@@ -127,16 +130,16 @@ int main (int argc, char* argv[]) {
 	workrank = argo::node_id();
 	numtasks = argo::number_of_nodes();
 
-	WEXEC(std::cout << "In main\n" << std::endl);
+	MAIN_PROC(workrank, std::cout << "In main\n" << std::endl);
 	struct timeval tv_start;
 	struct timeval tv_end;
 
 	std::ofstream fexec;
-	WEXEC(fexec.open("exec.csv",std::ios_base::app));
+	MAIN_PROC(workrank, fexec.open("exec.csv",std::ios_base::app));
 
 	// This contains the Atlas restart code to find any reusable data
 	initialize();
-	WEXEC(std::cout << "Done with cache creation" << std::endl);
+	MAIN_PROC(workrank, std::cout << "Done with cache creation" << std::endl);
 
 	pthread_t threads[NUM_THREADS];
 
@@ -150,17 +153,17 @@ int main (int argc, char* argv[]) {
 	argo::barrier();
 	gettimeofday(&tv_end, NULL);
 
-	WEXEC(fprintf(stderr, "time elapsed %ld us\n",
+	MAIN_PROC(workrank, fprintf(stderr, "time elapsed %ld us\n",
 				tv_end.tv_usec - tv_start.tv_usec +
 				(tv_end.tv_sec - tv_start.tv_sec) * 1000000));
-	WEXEC(fexec << "PC" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl);
-	WEXEC(fexec.close());
+	MAIN_PROC(workrank, fexec << "PC" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl);
+	MAIN_PROC(workrank, fexec.close());
 
 	datum_free(P);
 	delete[] P->hashmap;
 	delete P;
 
-	WEXEC(std::cout << "Done with persistent cache" << std::endl);
+	MAIN_PROC(workrank, std::cout << "Done with persistent cache" << std::endl);
 
 	argo::finalize();
 

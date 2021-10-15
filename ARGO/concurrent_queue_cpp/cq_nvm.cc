@@ -16,20 +16,23 @@ Ioannis Anevlavis <ioannis.anevlavis@etascale.com>
 #include <fstream>
 #include <iostream>
 
+// Macro for only node0 to do stuff
+#define MAIN_PROC(rank, inst) \
+do { \
+	if ((rank) == 0) { inst; } \
+} while (0)
+
 int workrank;
 int numtasks;
-
-// Macro for only node0 to do stuff
-#define WEXEC(inst) ({ if (workrank == 0) inst; })
 
 concurrent_queue* CQ;
 
 void initialize() {
 	CQ = new concurrent_queue;
-	WEXEC(CQ->init());
+	MAIN_PROC(workrank, CQ->init());
 	argo::barrier();
 
-	WEXEC(fprintf(stderr, "Created cq at %p\n", (void *)CQ));
+	MAIN_PROC(workrank, fprintf(stderr, "Created cq at %p\n", (void *)CQ));
 }
 
 void* run_stub(void* ptr) {
@@ -46,12 +49,12 @@ int main(int argc, char** argv) {
 	workrank = argo::node_id();
 	numtasks = argo::number_of_nodes();
 
-	WEXEC(std::cout << "In main\n" << std::endl);
+	MAIN_PROC(workrank, std::cout << "In main\n" << std::endl);
 	struct timeval tv_start;
 	struct timeval tv_end;
 	
 	std::ofstream fexec;
-	WEXEC(fexec.open("exec.csv",std::ios_base::app));
+	MAIN_PROC(workrank, fexec.open("exec.csv",std::ios_base::app));
 
 	initialize();
 
@@ -67,11 +70,11 @@ int main(int argc, char** argv) {
 	argo::barrier();
 	gettimeofday(&tv_end, NULL);
 
-	WEXEC(fprintf(stderr, "time elapsed %ld us\n",
+	MAIN_PROC(workrank, fprintf(stderr, "time elapsed %ld us\n",
 				tv_end.tv_usec - tv_start.tv_usec +
 				(tv_end.tv_sec - tv_start.tv_sec) * 1000000));
-	WEXEC(fexec << "CQ" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl);
-	WEXEC(fexec.close());
+	MAIN_PROC(workrank, fexec << "CQ" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl);
+	MAIN_PROC(workrank, fexec.close());
 
 	delete CQ;
 

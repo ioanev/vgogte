@@ -26,11 +26,14 @@ This microbenchmark swaps two items in an array.
 #define NUM_ROWS 1000000
 #define NUM_THREADS 4
 
+// Macro for only node0 to do stuff
+#define MAIN_PROC(rank, inst) \
+do { \
+	if ((rank) == 0) { inst; } \
+} while (0)
+
 int workrank;
 int numtasks;
-
-// Macro for only node0 to do stuff
-#define WEXEC(inst) ({ if (workrank == 0) inst; })
 
 void distribute(int& beg,
 		int& end,
@@ -72,7 +75,7 @@ void datum_init(sps* s) {
 		s->array[i].elements_ = argo::conew_<Element>();
 		s->array[i].lock_ = new argo::globallock::cohort_lock();
 	}
-	WEXEC(std::cout << "Finished allocating elems & locks" << std::endl);
+	MAIN_PROC(workrank, std::cout << "Finished allocating elems & locks" << std::endl);
 
 	int beg, end;
 	distribute(beg, end, NUM_ROWS, 0, 0);
@@ -85,7 +88,7 @@ void datum_init(sps* s) {
 	for(int i = beg; i < end; i++)
 		for(int j = 0; j < NUM_SUB_ITEMS; j++)
 			s->array[i].elements_->value_[j] = i+j;
-	WEXEC(std::cout << "Finished team process initialization" << std::endl);
+	MAIN_PROC(workrank, std::cout << "Finished team process initialization" << std::endl);
 }
 
 void datum_free(sps* s) {
@@ -103,7 +106,7 @@ void initialize() {
 	datum_init(S);
 	argo::barrier();
 
-	WEXEC(fprintf(stderr, "Created array at %p\n", (void *)S->array));
+	MAIN_PROC(workrank, fprintf(stderr, "Created array at %p\n", (void *)S->array));
 }
 
 bool swap(unsigned int index_a, unsigned int index_b) {
@@ -151,12 +154,12 @@ int main(int argc, char** argv) {
 	workrank = argo::node_id();
 	numtasks = argo::number_of_nodes();
 
-	WEXEC(std::cout << "In main\n" << std::endl);
+	MAIN_PROC(workrank, std::cout << "In main\n" << std::endl);
 	struct timeval tv_start;
 	struct timeval tv_end;
 
 	std::ofstream fexec;
-	WEXEC(fexec.open("exec.csv",std::ios_base::app));
+	MAIN_PROC(workrank, fexec.open("exec.csv",std::ios_base::app));
 
 	// This contains the Atlas restart code to find any reusable data
 	initialize();
@@ -173,11 +176,11 @@ int main(int argc, char** argv) {
 	argo::barrier();
 	gettimeofday(&tv_end, NULL);
 	
-	WEXEC(fprintf(stderr, "time elapsed %ld us\n",
+	MAIN_PROC(workrank, fprintf(stderr, "time elapsed %ld us\n",
 				tv_end.tv_usec - tv_start.tv_usec +
 				(tv_end.tv_sec - tv_start.tv_sec) * 1000000));
-	WEXEC(fexec << "SPS" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl);
-	WEXEC(fexec.close());
+	MAIN_PROC(workrank, fexec << "SPS" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl);
+	MAIN_PROC(workrank, fexec.close());
 
 	datum_free(S);
 	delete[] S->array;
