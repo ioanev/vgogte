@@ -15,8 +15,8 @@ Ioannis Anevlavis <ioannis.anevlavis@etascale.com>
 
 #include <vector>
 
-#define NUM_SUB_ITEMS 64 
-#define NUM_OPS 10000
+#define NUM_SUB_ITEMS 8 
+#define NUM_OPS 8192
 #define NUM_THREADS 4 
 
 typedef struct item item;
@@ -44,8 +44,8 @@ struct item {
 };
 
 class concurrent_queue {
-	item *head;
-	item *tail;
+	item **head;
+	item **tail;
 	argo::globallock::cohort_lock *enq_lock;
 	argo::globallock::cohort_lock *deq_lock;
 	int num_sub_items;
@@ -56,4 +56,5 @@ class concurrent_queue {
 	void push(int);
 	bool pop(int&);
 	void init();
+	void check();
 };

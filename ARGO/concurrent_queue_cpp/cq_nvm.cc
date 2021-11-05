@@ -38,13 +38,13 @@ void initialize() {
 void* run_stub(void* ptr) {
 	int ret;
 	for (int i = 0; i < NUM_OPS/(NUM_THREADS*numtasks); ++i) {
-		CQ->push(i);
+		CQ->push(9+workrank);
 	}
 	return NULL;
 }
 
 int main(int argc, char** argv) {
-	argo::init(1*1024*1024*1024UL);
+	argo::init(256*1024*1024UL);
 
 	workrank = argo::node_id();
 	numtasks = argo::number_of_nodes();
@@ -75,6 +75,9 @@ int main(int argc, char** argv) {
 				(tv_end.tv_sec - tv_start.tv_sec) * 1000000));
 	MAIN_PROC(workrank, fexec << "CQ" << ", " << std::to_string((tv_end.tv_usec - tv_start.tv_usec) + (tv_end.tv_sec - tv_start.tv_sec) * 1000000) << std::endl);
 	MAIN_PROC(workrank, fexec.close());
+
+	MAIN_PROC(workrank, CQ->check());
+	argo::barrier();
 
 	delete CQ;
 
