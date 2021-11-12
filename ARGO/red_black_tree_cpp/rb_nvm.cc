@@ -84,7 +84,11 @@ int main(int argc, char** argv) {
 
 	Node* root = argo::conew_array<Node>(2 * MAX_LEN);
 	MAIN_PROC(workrank, RB->initialize(root, array, TREE_LENGTH));
-	MAIN_PROC(workrank, if(DEBUG_RBT) { printf("|Init: RBTree|\n"); RB->rb_print(); });
+	MAIN_PROC(workrank, if (DEBUG_RBT) {
+			printf("|Init: RBTree|\n");
+			RB->rb_print();
+			fflush(stdout);
+	});
 	argo::barrier();
 	MAIN_PROC(workrank, std::cout << "Done with RBtree creation" << std::endl);
 
@@ -99,7 +103,11 @@ int main(int argc, char** argv) {
 	}
 	argo::barrier();
 	gettimeofday(&tv_end, NULL);
-	MAIN_PROC(workrank, if(DEBUG_RBT) { printf("|Exec: RBTree|\n"); RB->rb_print(); });
+	MAIN_PROC(workrank, if (DEBUG_RBT) {
+			printf("|Exec: RBTree|\n");
+			RB->rb_print();
+			fflush(stdout);
+	});
 
 	MAIN_PROC(workrank, fprintf(stderr, "time elapsed %ld us\n",
 				tv_end.tv_usec - tv_start.tv_usec +
