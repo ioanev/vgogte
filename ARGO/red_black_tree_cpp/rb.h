@@ -12,17 +12,28 @@ Ioannis Anevlavis <ioannis.anevlavis@etascale.com>
 #include <cstdlib>
 #include <assert.h>
 #include <pthread.h>
+#include <syscall.h>
 
 #include <set>
+#include <random>
 #include <vector>
 #include <iostream>
 
-#define TREE_LENGTH 100
-#define NUM_UPDATES_PER_CS 64 
-#define NUM_OPS 10000
-#define NUM_THREADS 4
+#define TREE_LENGTH 10
+#define NUM_UPDATES_PER_CS 1
+#define NUM_OPS 8
+#define NUM_THREADS 2
 
 #define MAX_LEN 16384  // Max total size = 512KB
+
+#define DEBUG_RBT 1
+#define debug(format, ...) \
+do { \
+	if (DEBUG_RBT) { \
+		fprintf(stdout, "N: %d, T: %ld, " format, argo::node_id(), syscall(__NR_gettid), ##__VA_ARGS__); \
+		fflush(stdout); \
+	} \
+} while (0)
 
 typedef enum { RED, BLACK } Color;
 
@@ -101,6 +112,7 @@ class Red_Black_Tree {
 	// It will only set all pointers in z to be NULL and set the value
 	// to be 0.
 	void rb_delete(Node* z);
+	void rb_print_helper(Node* root, std::string indent, bool last);
 
 	public:
 	Red_Black_Tree() {}
@@ -112,4 +124,5 @@ class Red_Black_Tree {
 	// return true if did a deletion
 	// note: only rb_delete_or_insert is persistent and thread-safe!
 	bool rb_delete_or_insert(int num_updates);
+	void rb_print();
 };

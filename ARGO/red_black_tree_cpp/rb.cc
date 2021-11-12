@@ -417,19 +417,25 @@ void Red_Black_Tree::delete_fix_up(Node* x, Node* y) {
 }
 
 bool Red_Black_Tree::rb_delete_or_insert(int num_updates) {
-	lock();
+	static std::random_device dev;
+	static std::mt19937 rng(dev());
+	static std::uniform_int_distribution<std::mt19937::result_type> dist(0,tree_length-1);
 
+	lock();
 	for(int i = 0; i < num_updates; i++) {
-		int val =  rand() % (tree_length);
+		int val =  /*rand()*/dist(rng) % (tree_length);
 		Node* toFind = rb_search(val);
 		if (toFind) {
+			debug("...deleting  node: %d\n", val);
 			rb_delete(toFind);
 		}
 		else {
+			debug("...inserting node: %d\n", val);
 			rb_insert(val);
 		}
 	}
 	unlock();
+
 	return true;
 }
 
@@ -515,4 +521,28 @@ void Red_Black_Tree::lock() {
 
 void Red_Black_Tree::unlock() {
 	lock_1->unlock();
+}
+
+void Red_Black_Tree::rb_print() {
+	if (root_1) {
+		rb_print_helper(root_1, "", true);
+	}
+}
+
+void Red_Black_Tree::rb_print_helper(Node* root, std::string indent, bool last) {
+	if (root != NULL) {
+		std::cout << indent;
+		if (last) {
+			std::cout << "R----";
+			indent += "   ";
+		} else {
+			std::cout << "L----";
+			indent += "|  ";
+		}
+
+		std::string sColor = root->color ? "BLACK" : "RED";
+		std::cout << root->val << "(" << sColor << ")" << std::endl;
+		rb_print_helper(root->left, indent, false);
+		rb_print_helper(root->right, indent, true);
+	}
 }

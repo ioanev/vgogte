@@ -60,7 +60,7 @@ void verify(Node* root) {
 }
 
 int main(int argc, char** argv) {
-	argo::init(500*1024*1024UL);
+	argo::init(256*1024*1024UL, 256*1024*1024UL);
 
 	workrank = argo::node_id();
 	numtasks = argo::number_of_nodes();
@@ -77,13 +77,14 @@ int main(int argc, char** argv) {
 	// This contains the Atlas restart code to find any reusable data
 	initialize();
 
-	array = argo::conew_array<int>(TREE_LENGTH);
+	MAIN_PROC(workrank, array = new int[TREE_LENGTH]);
 	MAIN_PROC(workrank, for (int i = 0; i < TREE_LENGTH; ++i) {
 			array[i] = i;
 	});
 
 	Node* root = argo::conew_array<Node>(2 * MAX_LEN);
 	MAIN_PROC(workrank, RB->initialize(root, array, TREE_LENGTH));
+	MAIN_PROC(workrank, if(DEBUG_RBT) { printf("|Init: RBTree|\n"); RB->rb_print(); });
 	argo::barrier();
 	MAIN_PROC(workrank, std::cout << "Done with RBtree creation" << std::endl);
 
@@ -98,6 +99,7 @@ int main(int argc, char** argv) {
 	}
 	argo::barrier();
 	gettimeofday(&tv_end, NULL);
+	MAIN_PROC(workrank, if(DEBUG_RBT) { printf("|Exec: RBTree|\n"); RB->rb_print(); });
 
 	MAIN_PROC(workrank, fprintf(stderr, "time elapsed %ld us\n",
 				tv_end.tv_usec - tv_start.tv_usec +
@@ -108,7 +110,7 @@ int main(int argc, char** argv) {
 	MAIN_PROC(workrank, std::cout << "Done with RBtree" << std::endl);
 
 	delete lock_1;
-	argo::codelete_array(array);
+	MAIN_PROC(workrank, delete[] array);
 	argo::codelete_array(root);
 	argo::codelete_(RB);
 
